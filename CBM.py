@@ -44,8 +44,6 @@ class CBM_PopulationAgent:
         self.coalition_best_solution = None  # Best found solution
         self.num_intensifiers = 2
         self.num_diversifiers = 5
-
-
         # Initialize population, weight matrix, and experience memory
         self.P = self.generate_population(self.pop_size,
                                           self.num_tasks,
@@ -53,8 +51,17 @@ class CBM_PopulationAgent:
         self.cost_matrix = self.generate_problem(self.num_tasks)
         self.evaluate_population(self.P, self.cost_matrix)
         self.current_solution = self.select_solution(self.P, self.cost_matrix)
-        self.W = self.init_weight_matrix(len(Operator), len(Condition))
+        self.W = self.init_weight_matrix()
         self.H = self.init_experience_memory()
+        self.operator_function_map = {
+            Operator.TWO_SWAP: self.two_swap,
+            Operator.ONE_MOVE: self.one_move,
+            Operator.BEST_COST_ROUTE_CROSSOVER: self.best_cost_route_crossover,
+            Operator.INTRA_DEPOT_REMOVAL: self.intra_depot_removal,
+            Operator.INTRA_DEPOT_SWAPPING: self.intra_depot_swapping,
+            Operator.INTER_DEPOT_SWAPPING: self.inter_depot_swapping,
+            Operator.SINGLE_ACTION_REROUTING: self.single_action_rerouting,
+        }
 
     def generate_problem(self, number_tasks):
         """
@@ -190,7 +197,12 @@ class CBM_PopulationAgent:
         """
         # Choose an operator (e.g., mutation, crossover) based on weight matrix W and current state
         # For simplicity, we only apply a mutation operator in this example
-        return "mutation"
+        row = W[condition.value]
+        operators = list(Operator)
+
+        # Randomly select an operator based on weights in `row`
+        chosen_operator = random.choices(operators, weights=row, k=1)[0]
+        return chosen_operator
 
     def apply_op(self, operator, current_solution, population, coalition_best_solution=None):
         """
@@ -201,23 +213,16 @@ class CBM_PopulationAgent:
         :param coalition_best_solution: The best solution among the coalition
         :return: A child solution
         """
-        # Apply mutation to generate a new solution
-        match operator:
-            case operator.BEST_COST_ROUTE_CROSSOVER:
-                return self.best_cost_route_crossover(current_solution, population)
-            case operator.INTRA_DEPOT_REMOVAL:
-                return self.intra_depot_removal(current_solution)
-            case operator.INTRA_DEPOT_SWAPPING:
-                return self.intra_depot_swapping(current_solution)
-            case operator.INTER_DEPOT_SWAPPING:
-                return self.inter_depot_swapping(current_solution)
-            case Operator.SINGLE_ACTION_REROUTING:
-                return self.single_action_rerouting(current_solution)
-            case Operator.TWO_SWAP:
-                return self.two_swap(current_solution)
-            case Operator.ONE_MOVE:
-                return self.one_move(current_solution)
-        return True
+        # Get the function based on the operator
+        if operator in self.operator_function_map:
+            # Call the function and pass arguments as needed
+            if operator == Operator.BEST_COST_ROUTE_CROSSOVER:
+                return self.operator_function_map[operator](current_solution, population)
+            else:
+                return self.operator_function_map[operator](current_solution)
+
+        # Raise an exception if the operator is not recognized
+        raise Exception("Something went wrong! The selected operation doesn't exist.")
 
     def update_experience(self, condition, operator, gain):
         """
@@ -373,7 +378,7 @@ class CBM_PopulationAgent:
         best_coalition_improved = False
         while not self.stopping_criterion():
             # Calculate the current state
-            condition = self.perceive_condition(self.H, previous_state)
+            condition = self.perceive_condition(self.H)
 
             # Check for minimal improvement in solution over n_cycles
             if cycle_count >= self.n_cycles and self.no_improvement_in_best_solution():
