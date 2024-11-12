@@ -417,7 +417,7 @@ class CBM_PopulationAgent:
         :param current_solution: The current solution to be mutated
         :return: A child solution
         """
-        return None
+        return current_solution
 
     def inter_depot_swapping(self, current_solution):
         """
@@ -427,7 +427,7 @@ class CBM_PopulationAgent:
         :param current_solution: The current solution to be mutated
         :return: A child solution
         """
-        return None
+        return current_solution
 
     def single_action_rerouting(self, current_solution):
         """
@@ -437,7 +437,7 @@ class CBM_PopulationAgent:
         :param current_solution: The current solution to be mutated
         :return: A child solution
         """
-        return None
+        return current_solution
 
     # Intensifiers
 
@@ -448,7 +448,7 @@ class CBM_PopulationAgent:
         :param current_solution: The current solution to be optimised
         :return: A child solution
         """
-        return None
+        return current_solution
 
     def one_move(self, current_solution):
         """
@@ -457,6 +457,7 @@ class CBM_PopulationAgent:
         :param current_solution: The current solution to be optimised
         :return: A child solution
         """
+        return current_solution
 
     def run(self):
         cycle_count = 0
