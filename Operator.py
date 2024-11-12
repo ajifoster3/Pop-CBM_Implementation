@@ -1,4 +1,7 @@
+import random
 from enum import Enum
+from copy import deepcopy
+from Fitness import Fitness
 
 class Operator(Enum):
     TWO_SWAP = 1
@@ -10,19 +13,64 @@ class Operator(Enum):
     SINGLE_ACTION_REROUTING = 7
 
 class OperatorFunctions:
-    def __int__(self):
-        self.operator_function_map = {
-            Operator.TWO_SWAP: self.two_swap,
-            Operator.ONE_MOVE: self.one_move,
-            Operator.BEST_COST_ROUTE_CROSSOVER: self.best_cost_route_crossover,
-            Operator.INTRA_DEPOT_REMOVAL: self.intra_depot_removal,
-            Operator.INTRA_DEPOT_SWAPPING: self.intra_depot_swapping,
-            Operator.INTER_DEPOT_SWAPPING: self.inter_depot_swapping,
-            Operator.SINGLE_ACTION_REROUTING: self.single_action_rerouting,
-        }
-    # Diversifiers
+    # Define operator function map with static method references
+    operator_function_map = {
+        Operator.TWO_SWAP: lambda current_solution: OperatorFunctions.two_swap(current_solution),
+        Operator.ONE_MOVE: lambda current_solution: OperatorFunctions.one_move(current_solution),
+        Operator.BEST_COST_ROUTE_CROSSOVER: lambda current_solution,
+                                                   population,
+                                                   cost_matrix: OperatorFunctions.best_cost_route_crossover(
+            current_solution, population, cost_matrix),
+        Operator.INTRA_DEPOT_REMOVAL: lambda current_solution: OperatorFunctions.intra_depot_removal(current_solution),
+        Operator.INTRA_DEPOT_SWAPPING: lambda current_solution: OperatorFunctions.intra_depot_swapping(
+            current_solution),
+        Operator.INTER_DEPOT_SWAPPING: lambda current_solution: OperatorFunctions.inter_depot_swapping(
+            current_solution),
+        Operator.SINGLE_ACTION_REROUTING: lambda current_solution: OperatorFunctions.single_action_rerouting(
+            current_solution)
+    }
 
-    def best_cost_route_crossover(self, current_solution, P):
+
+    def choose_operator(W, condition):
+        """
+        Stochastically choose an operator for a condition using the weights.
+        :param W: Weights
+        :param condition: Current condition
+        :return: The chosen operator
+        """
+        # Choose an operator (e.g., mutation, crossover) based on weight matrix W and current state
+        # For simplicity, we only apply a mutation operator in this example
+        row = W[condition.value]
+        operators = list(Operator)
+
+        # Randomly select an operator based on weights in `row`
+        chosen_operator = random.choices(operators, weights=row, k=1)[0]
+        return chosen_operator
+
+    def apply_op(operator, current_solution, population, coalition_best_solution=None, cost_matrix=None):
+        """
+        Apply the operator to the current solution and return the newly generated child solution.
+        :param cost_matrix: Cost matrix to calculate the cost
+        :param operator: The operator to be applied
+        :param current_solution: The current solution
+        :param population: The population
+        :param coalition_best_solution: The best solution among the coalition
+        :return: A child solution
+        """
+        # Get the function based on the operator
+        if operator in OperatorFunctions.operator_function_map:
+            # Call the function and pass arguments as needed
+            if operator == Operator.BEST_COST_ROUTE_CROSSOVER:
+                return OperatorFunctions.operator_function_map[operator](current_solution, population, cost_matrix)
+            else:
+                return OperatorFunctions.operator_function_map[operator](current_solution)
+
+        # Raise an exception if the operator is not recognized
+        raise Exception("Something went wrong! The selected operation doesn't exist.")
+
+    # Diversifiers
+    @staticmethod
+    def best_cost_route_crossover(current_solution, P, costMatrix):
         """
         "For two parent chromosomes, select a route to be removed
         from each. The removed nodes are inserted into the
@@ -36,7 +84,7 @@ class OperatorFunctions:
         # Find the fittest solution in P that is not current_solution
         fittest_non_current_solution = min(
             (sol for sol in P if sol != current_solution),
-            key=lambda sol: self.fitness_function(sol, self.cost_matrix)
+            key=lambda sol: Fitness.fitness_function(sol, costMatrix)
         )
 
         # Randomly select a path (route) from fittest_non_current_solution
@@ -87,7 +135,7 @@ class OperatorFunctions:
                     temp_counts[agent_index] += 1
 
                     # Calculate fitness with this temporary insertion
-                    temp_fitness = self.fitness_function((temp_order, temp_counts), self.cost_matrix)
+                    temp_fitness = Fitness.fitness_function((temp_order, temp_counts), costMatrix)
 
                     # If the new fitness is better, update best fitness, position, and agent
                     if temp_fitness < best_fitness:
@@ -102,7 +150,7 @@ class OperatorFunctions:
         # Return the modified solution as the child solution
         return new_solution_task_order, new_solution_task_counts # TODO: new_solution_task_counts came out as [6,6] for a 10 task problem
 
-    def intra_depot_removal(self, current_solution):
+    def intra_depot_removal(current_solution):
         """
         "Two cutpoints in the chromosome associated with the
         robot initial position are selected and the genetic
@@ -129,7 +177,7 @@ class OperatorFunctions:
             task_order[cut1:cut2 + 1] = reversed(task_order[cut1:cut2 + 1])
         return task_order, agent_task_counts
 
-    def intra_depot_swapping(self, current_solution):
+    def intra_depot_swapping(current_solution):
         """
         Perform an intra-depot mutation by selecting two random routes
         from the solution and moving a randomly selected task from
@@ -169,7 +217,7 @@ class OperatorFunctions:
         # Return the modified solution
         return task_order, agent_task_counts
 
-    def inter_depot_swapping(self, current_solution):
+    def inter_depot_swapping(current_solution):
         """
         "Mutation of swapping nodes in the routes of different initial
         positions. Candidates for this mutation are nodes that are in
@@ -180,7 +228,7 @@ class OperatorFunctions:
 
         return current_solution
 
-    def single_action_rerouting(self, current_solution):
+    def single_action_rerouting(current_solution):
         """
         "Re-routing involves randomly selecting one action and removing
         it from the existing route. The action is then inserted at the
@@ -192,7 +240,7 @@ class OperatorFunctions:
 
     # Intensifiers
 
-    def two_swap(self, current_solution):
+    def two_swap(current_solution):
         """
         "Swapping of borderline actions from two initial positions to
         improve solution fitness"
@@ -201,7 +249,7 @@ class OperatorFunctions:
         """
         return current_solution
 
-    def one_move(self, current_solution):
+    def one_move(current_solution):
         """
         "Removal of a node from the solution and insertion at the point
         that maximizes solution fitness"

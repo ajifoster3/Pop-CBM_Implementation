@@ -3,15 +3,12 @@ from copy import deepcopy
 import Operator
 import enum as Enum
 import numpy as np
+from Operator import OperatorFunctions
+from Fitness import Fitness
+from Condition import ConditionFunctions
+from WeightMatrix import WeightMatrix
 
-class Condition(Enum):
-    C_0 = 0 # Starting a DI-cycle
-    C_1 = 1 # A diversification operator was previous applied
-    C_2 = 2 # The first intensification operator was applied
-    C_3 = 3 # The second intensification operator was applied
-    C_4 = 4 # All intensification operators have been applied this DI-cycle and fitness hasn't improved
-
-class CBM_PopulationAgent:
+class CBMPopulationAgent:
     def __init__(self,
                  pop_size,
                  eta,
@@ -41,17 +38,8 @@ class CBM_PopulationAgent:
         self.cost_matrix = self.generate_problem(self.num_tasks)
         self.evaluate_population(self.P, self.cost_matrix)
         self.current_solution = self.select_solution(self.P, self.cost_matrix)
-        self.W = self.init_weight_matrix()
+        self.weight_matrix = WeightMatrix(self.num_intensifiers, self.num_diversifiers)
         self.H = self.init_experience_memory()
-        self.operator_function_map = {
-            Operator.TWO_SWAP: self.two_swap,
-            Operator.ONE_MOVE: self.one_move,
-            Operator.BEST_COST_ROUTE_CROSSOVER: self.best_cost_route_crossover,
-            Operator.INTRA_DEPOT_REMOVAL: self.intra_depot_removal,
-            Operator.INTRA_DEPOT_SWAPPING: self.intra_depot_swapping,
-            Operator.INTER_DEPOT_SWAPPING: self.inter_depot_swapping,
-            Operator.SINGLE_ACTION_REROUTING: self.single_action_rerouting,
-        }
 
     def generate_problem(self, number_tasks):
         """
@@ -100,7 +88,7 @@ class CBM_PopulationAgent:
 
         return population
 
-    #TODO: Maybe remove this?
+    # TODO: Maybe remove this?
     def evaluate_population(self, population, cost_matrix):
         """
         Calculates the fitness of all solutions, Not sure necessary
@@ -111,7 +99,7 @@ class CBM_PopulationAgent:
         # Evaluate each solution based on workload balance or other criteria
         for solution in population:
             # Calls the fitness function to evaluate each solution
-            self.fitness_function(solution, cost_matrix)
+            Fitness.fitness_function(solution, cost_matrix)
 
     def select_solution(self, population, cost_matrix):
         """
@@ -121,36 +109,11 @@ class CBM_PopulationAgent:
         :return: Fittest solution
         """
         # Select the best solution from the population based on fitness score
-        best_solution = min(population, key=lambda sol: self.fitness_function(
+        best_solution = min(population, key=lambda sol: Fitness.fitness_function(
             sol, cost_matrix))  # Assuming lower score is better
         return best_solution
 
-    def init_weight_matrix(self):
-        """
-        Generates a weight matrix mapping conditions onto operations.
-            o1o2o3o4o5o6o7
-        c0: 0 0 1 1 1 1 1 <- Initial diversification operator
-        c1: 1 1 0 0 0 0 0 <- Subsequent intensification operator
-        c2: 0 1 0 0 0 0 0 <- Which operator after intensification operator 1
-        c3: 1 0 0 0 0 0 0 <- Which operator after intensification operator 2 (Move rows if there's more intensifiers)
-        c4: 0 0 1 1 1 1 1 <- If all intensification operators haven't improved the solution, which diversificator to use
-        :return: A weight matrix mapping conditions to operations
-        """
-        # Initialize and return a weight matrix (for operator selection, if needed)
-        weight_matrix = []
-        initial_diversifier_condition_row = [0] * self.num_intensifiers + [1] * self.num_diversifiers
-        weight_matrix.append(initial_diversifier_condition_row)
-        initial_intensifier_condition_row = [1] * self.num_intensifiers + [0] * self.num_diversifiers
-        weight_matrix.append(initial_intensifier_condition_row)
-        for i in range(self.num_intensifiers):
-            intensifier_condition_row = [1] * self.num_intensifiers + [0] * self.num_diversifiers
-            intensifier_condition_row[i] = 0
-            weight_matrix.append(intensifier_condition_row)
-        final_diversifier_condition_row = [0] * self.num_intensifiers + [1] * self.num_diversifiers
-        weight_matrix.append(final_diversifier_condition_row)
-        return weight_matrix
-
-    #TODO: Maybe remove this?
+    # TODO: Maybe remove this?
     def init_experience_memory(self):
         """
         Initialise the experience memory. Maybe unnecessary?
@@ -158,62 +121,6 @@ class CBM_PopulationAgent:
         """
         # Initialize and return experience memory
         return []
-
-    def perceive_condition(self, H):
-        """
-        Calculates the condition based on the experience memory of which operators where used previously.
-        :param H: Experience memory
-        :return: The current condition
-        """
-        if not H:
-            return Condition.C_0
-        if H[-1][1] in {Operator.BEST_COST_ROUTE_CROSSOVER,
-                        Operator.INTRA_DEPOT_REMOVAL,
-                        Operator.INTRA_DEPOT_SWAPPING,
-                        Operator.INTER_DEPOT_SWAPPING,
-                        Operator.SINGLE_ACTION_REROUTING}:
-            return Condition.C_1
-        if H[-1][1] == Operator.TWO_SWAP:
-            return Condition.C_2
-        if H[-1][1] == Operator.ONE_MOVE:
-            return Condition.C_3
-        return Condition.C_4 # TODO: This needs changing to see if cost has decreased since applying intensifiers.
-
-    def choose_operator(self, W, condition):
-        """
-        Stochastically choose an operator for a condition using the weights.
-        :param W: Weights
-        :param condition: Current condition
-        :return: The chosen operator
-        """
-        # Choose an operator (e.g., mutation, crossover) based on weight matrix W and current state
-        # For simplicity, we only apply a mutation operator in this example
-        row = W[condition.value]
-        operators = list(Operator)
-
-        # Randomly select an operator based on weights in `row`
-        chosen_operator = random.choices(operators, weights=row, k=1)[0]
-        return chosen_operator
-
-    def apply_op(self, operator, current_solution, population, coalition_best_solution=None):
-        """
-        Apply the operator to the current solution and return the newly generated child solution.
-        :param operator: The operator to be applied
-        :param current_solution: The current solution
-        :param population: The population
-        :param coalition_best_solution: The best solution among the coalition
-        :return: A child solution
-        """
-        # Get the function based on the operator
-        if operator in self.operator_function_map:
-            # Call the function and pass arguments as needed
-            if operator == Operator.BEST_COST_ROUTE_CROSSOVER:
-                return self.operator_function_map[operator](current_solution, population)
-            else:
-                return self.operator_function_map[operator](current_solution)
-
-        # Raise an exception if the operator is not recognized
-        raise Exception("Something went wrong! The selected operation doesn't exist.")
 
     def update_experience(self, condition, operator, gain):
         """
@@ -225,32 +132,6 @@ class CBM_PopulationAgent:
         """
         self.H.append([condition, operator, gain])
         pass
-
-    def fitness_function(self, solution, cost_matrix):
-        """
-        Returns the fitness of the solution using the cost matrix.
-        :param solution: Solution to be calculated
-        :param cost_matrix: Cost matrix to calculate with
-        :return: The fitness of the solution
-        """
-        # Extract the task order from the solution
-        task_order, agent_task_counts = solution
-
-        # Calculate the total cost based on the cost matrix
-        total_cost = 0
-
-        # Sum up the costs for the assigned tasks in the task order
-        counter = 0
-        for j in agent_task_counts:
-
-            for i in range(counter, counter + j - 1):
-                task_i = task_order[i]
-                task_j = task_order[i + 1]
-                total_cost += cost_matrix[task_i][task_j]
-            counter += j
-
-        return total_cost
-
 
     # TODO: Implement Learning!!!
 
@@ -277,7 +158,6 @@ class CBM_PopulationAgent:
         # Define a stopping criterion (e.g., a fixed number of iterations)
         return False  # Placeholder; replace with actual condition
 
-
     def no_improvement_in_best_solution(self):
         # Check if there has been no change in the best solution greater than epsilon
         return False  # Placeholder; replace with actual condition
@@ -291,14 +171,13 @@ class CBM_PopulationAgent:
         # Placeholder for receiving a weight matrix from a neighboring agent, if available
         return None
 
-
     def run(self):
         cycle_count = 0
         previous_state = None;
         best_coalition_improved = False
         while not self.stopping_criterion():
             # Calculate the current state
-            condition = self.perceive_condition(self.H)
+            condition = ConditionFunctions.perceive_condition(self.H)
 
             # Check for minimal improvement in solution over n_cycles
             if cycle_count >= self.n_cycles and self.no_improvement_in_best_solution():
@@ -307,29 +186,35 @@ class CBM_PopulationAgent:
                 cycle_count = 0  # Reset cycle count
 
             # Choose and apply an operator
-            operator = self.choose_operator(self.W, condition)
-            C_new = self.apply_op(operator, self.current_solution,
-                                  self.P, self.coalition_best_solution)
+            operator = OperatorFunctions.choose_operator(self.weight_matrix.weights, condition)
+            C_new = OperatorFunctions.apply_op(
+                operator,
+                self.current_solution,
+                self.P,
+                self.coalition_best_solution,
+                self.cost_matrix)
 
             # Update experience history
-            gain = self.fitness_function(self.current_solution, self.cost_matrix) - \
-                   self.fitness_function(C_new, self.cost_matrix)
+            gain = Fitness.fitness_function(self.current_solution, self.cost_matrix) - \
+                   Fitness.fitness_function(C_new, self.cost_matrix)
             self.update_experience(condition, operator, gain)
 
             # Update solutions if there is an improvement in coallition_best_solution
-            if self.coalition_best_solution is None or self.fitness_function(C_new, self.cost_matrix) < self.fitness_function(self.coalition_best_solution,
-                                                                                                                              self.cost_matrix):
+            if self.coalition_best_solution is None or Fitness.fitness_function(C_new,
+                                                                             self.cost_matrix) < Fitness.fitness_function(
+                self.coalition_best_solution,
+                self.cost_matrix):
                 self.coalition_best_solution = deepcopy(C_new)
                 best_coalition_improved = True
 
             # Learning mechanisms at the end of a Diversification-Intensification (D-I) cycle
             if self.end_of_DI_cycle(cycle_count, self.n_cycles):
                 if best_coalition_improved:
-                    self.W = self.individual_learning(self.W, self.H, self.eta)
+                    self.weight_matrix.weights = self.individual_learning(self.weight_matrix.weights, self.H, self.eta)
 
                 # Mimetism learning if weight matrix is received from a neighbor
-                #W_received = self.receive_weight_matrix()
-                #if W_received:
+                # W_received = self.receive_weight_matrix()
+                # if W_received:
                 #    self.W = self.mimetism_learning(self.W, W_received, self.rho)
 
                 cycle_count = 0;
@@ -340,5 +225,5 @@ class CBM_PopulationAgent:
 
 
 if __name__ == '__main__':
-    cbm = CBM_PopulationAgent(20, 0.5, 1, 5, 0.5, 10, 2, 5, 5)
+    cbm = CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 10, 2, 5, 5)
     cbm.run()
