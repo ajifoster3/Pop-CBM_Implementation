@@ -306,12 +306,81 @@ class CBM_PopulationAgent:
         """
         "For two parent chromosomes, select a route to be removed
         from each. The removed nodes are inserted into the
-        other parent solution at the best insertion cost"
+        other parent solution at the best insertion cost."
+        At the moment it selects the best solution in P
+        other than the current solution.
         :param P: Population
         :param current_solution: The current solution as a parent
         :return: A child solution
         """
-        return None
+        # Find the fittest solution in P that is not current_solution
+        fittest_non_current_solution = min(
+            (sol for sol in P if sol != current_solution),
+            key=lambda sol: self.fitness_function(sol, self.cost_matrix)
+        )
+
+        # Randomly select a path (route) from fittest_non_current_solution
+        task_order, agent_task_counts = fittest_non_current_solution
+        selected_agent = random.randint(0, len(agent_task_counts) - 1)
+
+        # Identify the start and end indices for the selected agent's path
+        start_index = sum(agent_task_counts[:selected_agent])
+        end_index = start_index + agent_task_counts[selected_agent]
+
+        # Extract the path for the selected agent
+        selected_path = task_order[start_index:end_index]
+
+        # Create a copy of current_solution to modify
+        new_solution_task_order, new_solution_task_counts = deepcopy(current_solution)
+
+        temp_count_counter = 0
+        temp_task_counter = 0
+        # For each agent
+        for i in new_solution_task_counts:
+            # For each task for that agent
+            for j in range(i):
+                if new_solution_task_order[temp_task_counter] in selected_path:
+                    new_solution_task_order.remove(new_solution_task_order[temp_task_counter])
+                    new_solution_task_counts[temp_count_counter] -= 1
+                    temp_task_counter -= 1
+                temp_task_counter += 1
+            temp_count_counter += 1
+
+            for task in selected_path[:]:  # Use a copy of selected_path to iterate safely
+                best_fitness = float('inf')
+                best_position = 0
+                best_agent = 0
+
+                # Try inserting the task at each position in the task order
+                for agent_index, count in enumerate(new_solution_task_counts):
+                    # Calculate the insertion range for this agent
+                    agent_start_index = sum(new_solution_task_counts[:agent_index])
+                    agent_end_index = agent_start_index + count
+
+                    # Try inserting within this agent's range
+                    for pos in range(agent_start_index, agent_end_index + 1):
+                        temp_order = new_solution_task_order[:]
+                        temp_order.insert(pos, task)
+
+                        # Update task counts temporarily for fitness calculation
+                        temp_counts = new_solution_task_counts[:]
+                        temp_counts[agent_index] += 1
+
+                        # Calculate fitness with this temporary insertion
+                        temp_fitness = self.fitness_function((temp_order, temp_counts), self.cost_matrix)
+
+                        # If the new fitness is better, update best fitness, position, and agent
+                        if temp_fitness < best_fitness:
+                            best_fitness = temp_fitness
+                            best_position = pos
+                            best_agent = agent_index
+
+                # Insert the task at the best position found and update the task count for that agent
+                new_solution_task_order.insert(best_position, task)
+                new_solution_task_counts[best_agent] += 1
+
+        # Return the modified solution as the child solution
+        return new_solution_task_order, new_solution_task_counts
 
     def intra_depot_removal(self, current_solution):
         """
