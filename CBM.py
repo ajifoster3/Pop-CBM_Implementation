@@ -411,13 +411,43 @@ class CBM_PopulationAgent:
 
     def intra_depot_swapping(self, current_solution):
         """
-        "This simple mutation operator selects two random routes from
-        the same initial position and exchanges a randomly selected
-        action from one route to another."
+        Perform an intra-depot mutation by selecting two random routes
+        from the solution and moving a randomly selected task from
+        one route to another.
         :param current_solution: The current solution to be mutated
-        :return: A child solution
+        :return: A mutated child solution
         """
-        return current_solution
+        # Extract task order and agent task counts from the current solution
+        task_order, agent_task_counts = deepcopy(current_solution)
+
+        # Randomly select two distinct agents (routes) to swap between
+        agent1, agent2 = random.sample(range(len(agent_task_counts)), 2)
+
+        # Determine the task range for each agent
+        start_index1 = sum(agent_task_counts[:agent1]) + 1
+        end_index1 = start_index1 + agent_task_counts[agent1] - 1
+
+        start_index2 = sum(agent_task_counts[:agent2])
+        end_index2 = start_index2 + agent_task_counts[agent2]
+
+        # Ensure the selected agent has tasks to swap
+        if end_index1 > start_index1:
+            # Randomly select a task from agent1's route
+            task_index = random.randint(start_index1, end_index1 - 1)
+            task = task_order.pop(task_index)
+            agent_task_counts[agent1] -= 1
+
+            # Insert the task into a random position in agent2's route
+            if end_index2 > start_index2:
+                insert_position = random.randint(start_index2, end_index2)
+            else:
+                insert_position = start_index2
+
+            task_order.insert(insert_position, task)
+            agent_task_counts[agent2] += 1
+
+        # Return the modified solution
+        return task_order, agent_task_counts
 
     def inter_depot_swapping(self, current_solution):
         """
