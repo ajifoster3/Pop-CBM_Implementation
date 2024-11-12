@@ -480,7 +480,7 @@ class CBM_PopulationAgent:
             # Update experience history
             gain = self.fitness_function(self.current_solution, self.cost_matrix) - \
                    self.fitness_function(C_new, self.cost_matrix)
-            self.update_experience(self.H, condition, operator, gain)
+            self.update_experience(condition, operator, gain)
 
             # Update solutions if there is an improvement in coallition_best_solution
             if self.coalition_best_solution is None or self.fitness_function(C_new, self.cost_matrix) < self.fitness_function(self.coalition_best_solution,
