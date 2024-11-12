@@ -390,7 +390,24 @@ class CBM_PopulationAgent:
         :param current_solution: The current solution to be mutated
         :return: A child solution
         """
-        return None
+        # Extract task order and agent task counts from current solution
+        task_order, agent_task_counts = deepcopy(current_solution)
+
+        # Randomly select an agent
+        selected_agent = random.randint(0, len(agent_task_counts) - 1)
+
+        # Calculate the start and end index for this agent's route
+        start_index = sum(agent_task_counts[:selected_agent])
+        end_index = start_index + agent_task_counts[selected_agent]
+
+        # Perform the reversal mutation if the agent has enough tasks
+        if end_index - start_index > 1:  # Ensure there are enough tasks to reverse a section
+            # Randomly choose two cut points within this range
+            cut1, cut2 = sorted(random.sample(range(start_index, end_index), 2))
+
+            # Reverse the section between the two cut points
+            task_order[cut1:cut2 + 1] = reversed(task_order[cut1:cut2 + 1])
+        return task_order, agent_task_counts
 
     def intra_depot_swapping(self, current_solution):
         """
