@@ -228,7 +228,7 @@ class OperatorFunctions:
         positions. Candidates for this mutation are nodes that are in
         similar proximity to more than one initial position."
 
-        Only applicable with Depots.
+        Only applicable with Depots. Not necessary yet, Ignore
 
         :param current_solution: The current solution to be mutated
         :return: A child solution
@@ -242,32 +242,11 @@ class OperatorFunctions:
         it from the existing route. The action is then inserted at the
         best feasible insertion point within the entire chromosome."
 
-        Confusing!
+        This selects a random task and inserts it in the best position
 
         :param current_solution: The current solution to be mutated
         :return: A modified solution with improved fitness
         """
-        return current_solution
-    # Intensifiers
-
-    def two_swap(current_solution, cost_matrix):
-        """
-        "Swapping of borderline actions from two initial positions to
-        improve solution fitness"
-        :param current_solution: The current solution to be optimised
-        :return: A child solution
-        """
-        return current_solution
-
-
-    def one_move(current_solution, cost_matrix):
-        """
-        "Removal of a node from the solution and insertion at the point
-        that maximizes solution fitness"
-        :param current_solution: The current solution to be optimised
-        :return: A child solution
-        """
-
         # Deep copy to avoid modifying the original solution
         task_order, agent_task_counts = deepcopy(current_solution)
 
@@ -317,3 +296,99 @@ class OperatorFunctions:
         agent_task_counts[best_agent] += 1
 
         return task_order, agent_task_counts
+
+
+    # Intensifiers
+
+    # I can't tell the difference between ^ single_action_rerouting and one_move
+    # Single action rerouting: randomly select and action and insert at best place in chromosome
+    # One move: Remove a node and insert at position that maximises fitness
+    # Maybe we don't need single action rerouting either.
+
+
+    def one_move(current_solution, cost_matrix):
+        """
+        "Removal of a node from the solution and insertion at the point
+        that maximizes solution fitness"
+
+        Move a task to a new position such that the move has the greatest increase in fitness
+        Requires calculating the fitness of moving all tasks to all positions
+
+        :param current_solution: The current solution to be optimised
+        :return: A child solution
+        """
+        # Deep copy to avoid modifying the original solution
+        # Deep copy to avoid modifying the original solution
+        task_order, agent_task_counts = deepcopy(current_solution)
+
+        # Initialize variables to track the best task movement
+        best_fitness = float('inf')
+        best_task_index = None
+        best_position = None
+        best_agent = None
+        original_agent = None
+
+        # Loop through each task in the task order to consider moving it
+        for task_index, task in enumerate(task_order):
+            # Copy the current task order and remove the task from the current position
+            temp_order = task_order[:]
+            removed_task = temp_order.pop(task_index)
+
+            # Identify the agent from which the task is removed
+            agent_index = next(i for i, count in enumerate(agent_task_counts) if
+                               sum(agent_task_counts[:i]) <= task_index < sum(agent_task_counts[:i + 1]))
+            temp_counts = agent_task_counts[:]
+            temp_counts[agent_index] -= 1  # Temporarily reduce task count for the removal
+
+            # Try inserting the removed task at every possible position for each agent
+            for i, count in enumerate(temp_counts):
+                start_index = sum(temp_counts[:i])
+                end_index = start_index + count
+
+                # Test inserting the task in each possible position within this agent's range
+                for pos in range(start_index, end_index + 1):
+                    # Make a temporary copy of the order and insert the task
+                    temp_order_with_insertion = temp_order[:]
+                    temp_order_with_insertion.insert(pos, removed_task)
+
+                    # Update counts for fitness calculation
+                    temp_counts_with_insertion = temp_counts[:]
+                    temp_counts_with_insertion[i] += 1
+
+                    # Calculate fitness
+                    temp_fitness = Fitness.fitness_function((temp_order_with_insertion, temp_counts_with_insertion),
+                                                            cost_matrix)
+
+                    # Check if this move yields a better fitness
+                    if temp_fitness < best_fitness:
+                        best_fitness = temp_fitness
+                        best_task_index = task_index
+                        best_position = pos
+                        best_agent = i
+                        original_agent = agent_index  # Track the original agent
+
+        # Apply the best move identified
+        if best_task_index is not None:
+            # Remove the task from its original position
+            task_to_move = task_order.pop(best_task_index)
+
+            # Update task counts: decrement for original agent, increment for new agent
+            agent_task_counts[original_agent] -= 1
+            agent_task_counts[best_agent] += 1
+
+            # Insert the task at the new best position
+            task_order.insert(best_position, task_to_move)
+
+        return task_order, agent_task_counts
+
+
+    def two_swap(current_solution, cost_matrix):
+        """
+        "Swapping of borderline actions from two initial positions to
+        improve solution fitness"
+        :param current_solution: The current solution to be optimised
+        :return: A child solution
+        """
+        return current_solution
+
+
