@@ -24,7 +24,7 @@ class ConditionFunctions:
         if H[-1][1] in {Operator.Operator.BEST_COST_ROUTE_CROSSOVER,
                         Operator.Operator.INTRA_DEPOT_REMOVAL,
                         Operator.Operator.INTRA_DEPOT_SWAPPING,
-                        Operator.Operator.INTER_DEPOT_SWAPPING,
+                        #'Operator.Operator.INTER_DEPOT_SWAPPING,
                         Operator.Operator.SINGLE_ACTION_REROUTING}:
             return Condition.C_1
         if H[-1][1] == Operator.Operator.TWO_SWAP:

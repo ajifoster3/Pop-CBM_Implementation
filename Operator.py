@@ -1,7 +1,9 @@
 import random
-from enum import Enum
 from copy import deepcopy
+from enum import Enum
+
 from Fitness import Fitness
+
 
 class Operator(Enum):
     TWO_SWAP = 1
@@ -9,14 +11,14 @@ class Operator(Enum):
     BEST_COST_ROUTE_CROSSOVER = 3
     INTRA_DEPOT_REMOVAL = 4
     INTRA_DEPOT_SWAPPING = 5
-    INTER_DEPOT_SWAPPING = 6
-    SINGLE_ACTION_REROUTING = 7
+    #INTER_DEPOT_SWAPPING = 6 Not applicable due to lack of depots
+    SINGLE_ACTION_REROUTING = 6
 
 class OperatorFunctions:
     # Define operator function map with static method references
     operator_function_map = {
-        Operator.TWO_SWAP: lambda current_solution: OperatorFunctions.two_swap(current_solution),
-        Operator.ONE_MOVE: lambda current_solution: OperatorFunctions.one_move(current_solution),
+        Operator.TWO_SWAP: lambda current_solution, cost_matrix: OperatorFunctions.two_swap(current_solution, cost_matrix),
+        Operator.ONE_MOVE: lambda current_solution, cost_matrix: OperatorFunctions.one_move(current_solution, cost_matrix),
         Operator.BEST_COST_ROUTE_CROSSOVER: lambda current_solution,
                                                    population,
                                                    cost_matrix: OperatorFunctions.best_cost_route_crossover(
@@ -24,10 +26,9 @@ class OperatorFunctions:
         Operator.INTRA_DEPOT_REMOVAL: lambda current_solution: OperatorFunctions.intra_depot_removal(current_solution),
         Operator.INTRA_DEPOT_SWAPPING: lambda current_solution: OperatorFunctions.intra_depot_swapping(
             current_solution),
-        Operator.INTER_DEPOT_SWAPPING: lambda current_solution: OperatorFunctions.inter_depot_swapping(
-            current_solution),
-        Operator.SINGLE_ACTION_REROUTING: lambda current_solution: OperatorFunctions.single_action_rerouting(
-            current_solution)
+        #Operator.INTER_DEPOT_SWAPPING: lambda current_solution: OperatorFunctions.inter_depot_swapping(
+        #    current_solution),
+        Operator.SINGLE_ACTION_REROUTING: lambda current_solution, cost_matrix: OperatorFunctions.single_action_rerouting(current_solution, cost_matrix)
     }
 
 
@@ -62,6 +63,10 @@ class OperatorFunctions:
             # Call the function and pass arguments as needed
             if operator == Operator.BEST_COST_ROUTE_CROSSOVER:
                 return OperatorFunctions.operator_function_map[operator](current_solution, population, cost_matrix)
+            elif (operator == Operator.SINGLE_ACTION_REROUTING
+                  or operator == Operator.TWO_SWAP
+                  or operator == Operator.ONE_MOVE):
+                    return OperatorFunctions.operator_function_map[operator](current_solution, cost_matrix)
             else:
                 return OperatorFunctions.operator_function_map[operator](current_solution)
 
@@ -222,25 +227,30 @@ class OperatorFunctions:
         "Mutation of swapping nodes in the routes of different initial
         positions. Candidates for this mutation are nodes that are in
         similar proximity to more than one initial position."
+
+        Only applicable with Depots.
+
         :param current_solution: The current solution to be mutated
         :return: A child solution
         """
 
         return current_solution
 
-    def single_action_rerouting(current_solution):
+    def single_action_rerouting(current_solution, cost_matrix):
         """
         "Re-routing involves randomly selecting one action and removing
         it from the existing route. The action is then inserted at the
         best feasible insertion point within the entire chromosome."
+
+        Confusing!
+
         :param current_solution: The current solution to be mutated
-        :return: A child solution
+        :return: A modified solution with improved fitness
         """
         return current_solution
-
     # Intensifiers
 
-    def two_swap(current_solution):
+    def two_swap(current_solution, cost_matrix):
         """
         "Swapping of borderline actions from two initial positions to
         improve solution fitness"
@@ -249,11 +259,61 @@ class OperatorFunctions:
         """
         return current_solution
 
-    def one_move(current_solution):
+
+    def one_move(current_solution, cost_matrix):
         """
         "Removal of a node from the solution and insertion at the point
         that maximizes solution fitness"
         :param current_solution: The current solution to be optimised
         :return: A child solution
         """
-        return current_solution
+
+        # Deep copy to avoid modifying the original solution
+        task_order, agent_task_counts = deepcopy(current_solution)
+
+        # Select a random action (task) from the entire task order
+        if not task_order:
+            return current_solution  # Return unchanged if task_order is empty
+
+        # Randomly select an action to remove
+        task_index = random.randint(0, len(task_order) - 1)
+        task = task_order.pop(task_index)
+
+        # Adjust task count for the agent that lost the task
+        agent_index = next(i for i, count in enumerate(agent_task_counts) if
+                           sum(agent_task_counts[:i]) <= task_index < sum(agent_task_counts[:i + 1]))
+        agent_task_counts[agent_index] -= 1
+
+        # Initialize variables to track best insertion
+        best_fitness = float('inf')
+        best_position = 0
+        best_agent = 0
+
+        # Iterate over possible insertion positions
+        for i, count in enumerate(agent_task_counts):
+            start_index = sum(agent_task_counts[:i])
+            end_index = start_index + count
+
+            # Try inserting task at every possible position for the current agent
+            for pos in range(start_index, end_index + 1):
+                temp_order = task_order[:]
+                temp_order.insert(pos, task)
+
+                # Temporary counts for fitness calculation
+                temp_counts = agent_task_counts[:]
+                temp_counts[i] += 1
+
+                # Calculate fitness
+                temp_fitness = Fitness.fitness_function((temp_order, temp_counts), cost_matrix)
+
+                # Check if this position yields better fitness
+                if temp_fitness < best_fitness:
+                    best_fitness = temp_fitness
+                    best_position = pos
+                    best_agent = i
+
+        # Insert the task at the best position and update task counts
+        task_order.insert(best_position, task)
+        agent_task_counts[best_agent] += 1
+
+        return task_order, agent_task_counts

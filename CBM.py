@@ -30,7 +30,7 @@ class CBMPopulationAgent:
         self.agent_best_solution = None  # Best solution found by the agent
         self.coalition_best_solution = None  # Best found solution
         self.num_intensifiers = 2
-        self.num_diversifiers = 5
+        self.num_diversifiers = 4
         # Initialize population, weight matrix, and experience memory
         self.P = self.generate_population(self.pop_size,
                                           self.num_tasks,
