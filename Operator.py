@@ -381,14 +381,71 @@ class OperatorFunctions:
 
         return task_order, agent_task_counts
 
-
     def two_swap(current_solution, cost_matrix):
         """
-        "Swapping of borderline actions from two initial positions to
-        improve solution fitness"
-        :param current_solution: The current solution to be optimised
-        :return: A child solution
+        "Swapping two pairs of subsequent tasks (each pair as a unit) from two different agents
+        to improve solution fitness by minimizing traversal cost."
+
+        :param current_solution: The current solution to be optimized
+        :param cost_matrix: The matrix used to calculate traversal costs
+        :return: A child solution with improved fitness
         """
-        return current_solution
+        # Deep copy to avoid modifying the original solution
+        task_order, agent_task_counts = deepcopy(current_solution)
+
+        # Initialize variables to track the best pair swap
+        best_fitness = float('inf')
+        best_swap = None  # Tuple of (first_agent, first_pair_start, second_agent, second_pair_start)
+
+        # Identify the start and end indices of tasks for each agent
+        start_index = 0
+        agent_task_ranges = []
+        for count in agent_task_counts:
+            agent_task_ranges.append((start_index, start_index + count - 1))
+            start_index += count
+
+        # Loop through each pair of agents to consider swapping task pairs
+        for agent1, (start1, end1) in enumerate(agent_task_ranges):
+            # Skip if agent1 has fewer than 2 tasks
+            if end1 <= start1:
+                continue
+
+            for agent2, (start2, end2) in enumerate(agent_task_ranges):
+                # Skip if agent2 has fewer than 2 tasks or if it's the same agent
+                if agent1 >= agent2 or end2 <= start2:
+                    continue
+
+                # Generate all possible pairs of adjacent tasks for each agent
+                for i in range(start1, end1):
+                    if i + 1 > end1:
+                        continue  # Ensure we have a valid pair in agent1
+                    for j in range(start2, end2):
+                        if j + 1 > end2:
+                            continue  # Ensure we have a valid pair in agent2
+
+                        # Make a temporary copy of task_order to apply the swap
+                        temp_order = task_order[:]
+
+                        # Swap the pairs: (task[i], task[i+1]) with (task[j], task[j+1])
+                        temp_order[i], temp_order[i + 1], temp_order[j], temp_order[j + 1] = (
+                            temp_order[j], temp_order[j + 1], temp_order[i], temp_order[i + 1]
+                        )
+
+                        # Calculate the fitness after the swap
+                        temp_fitness = Fitness.fitness_function((temp_order, agent_task_counts), cost_matrix)
+
+                        # Track the best swap if it improves fitness
+                        if temp_fitness < best_fitness:
+                            best_fitness = temp_fitness
+                            best_swap = (i, i + 1, j, j + 1)
+
+        # Apply the best swap identified
+        if best_swap is not None:
+            i, i_next, j, j_next = best_swap
+            task_order[i], task_order[i_next], task_order[j], task_order[j_next] = (
+                task_order[j], task_order[j_next], task_order[i], task_order[i_next]
+            )
+
+        return task_order, agent_task_counts
 
 

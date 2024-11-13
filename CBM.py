@@ -1,12 +1,13 @@
 import random
 from copy import deepcopy
-import Operator
-import enum as Enum
+
 import numpy as np
-from Operator import OperatorFunctions
-from Fitness import Fitness
+
 from Condition import ConditionFunctions
+from Fitness import Fitness
+from Operator import OperatorFunctions
 from WeightMatrix import WeightMatrix
+
 
 class CBMPopulationAgent:
     def __init__(self,
@@ -139,8 +140,22 @@ class CBMPopulationAgent:
         # Broadcast the solution (placeholder, no actual communication in this simple example)
         pass
 
-    def individual_learning(self, W, H, eta):
+    def individual_learning(self, W, H, eta, best_solution_value):
         # Update weight matrix (if needed) based on learning (not fully implemented in this example)
+        abs_gain = 0
+        index_best_fitness = -1
+        for i in range(len(H)):
+            current_gain = abs_gain + H[i][2]
+            if current_gain < abs_gain:
+                index_best_fitness = i
+            abs_gain += current_gain
+
+        # Get elements before index_best_fitness
+        elements_before_best = H[:index_best_fitness+1] if index_best_fitness != -1 else []
+        condition_operator_pairs = [(item[1], item[2]) for item in elements_before_best]
+        condition_operator_pairs = list(set(condition_operator_pairs))
+        for pair in condition_operator_pairs:
+            W[pair[0].value][pair[1]] += eta # TODO: Eta2 for beating coalition fitness
         return W
 
     def broadcast_weight_matrix(self, W):
@@ -175,6 +190,7 @@ class CBMPopulationAgent:
         cycle_count = 0
         previous_state = None;
         best_coalition_improved = False
+        best_solution_value = Fitness.fitness_function(self.current_solution, self.cost_matrix)
         while not self.stopping_criterion():
             # Calculate the current state
             condition = ConditionFunctions.perceive_condition(self.H)
@@ -194,34 +210,46 @@ class CBMPopulationAgent:
                 self.coalition_best_solution,
                 self.cost_matrix)
 
+
             # Update experience history
             gain = Fitness.fitness_function(self.current_solution, self.cost_matrix) - \
                    Fitness.fitness_function(C_new, self.cost_matrix)
             self.update_experience(condition, operator, gain)
+            print(operator, condition)
+            print(Fitness.fitness_function(self.current_solution, self.cost_matrix))
 
             # Update solutions if there is an improvement in coallition_best_solution
-            if self.coalition_best_solution is None or Fitness.fitness_function(C_new,
-                                                                             self.cost_matrix) < Fitness.fitness_function(
+            if self.coalition_best_solution is None or \
+                    Fitness.fitness_function(C_new,
+                                             self.cost_matrix) < Fitness.fitness_function(
                 self.coalition_best_solution,
                 self.cost_matrix):
                 self.coalition_best_solution = deepcopy(C_new)
                 best_coalition_improved = True
 
+            self.current_solution = C_new
+
+            cycle_count += 1  # Increment cycle count
+
             # Learning mechanisms at the end of a Diversification-Intensification (D-I) cycle
             if self.end_of_DI_cycle(cycle_count, self.n_cycles):
                 if best_coalition_improved:
-                    self.weight_matrix.weights = self.individual_learning(self.weight_matrix.weights, self.H, self.eta)
+                    self.weight_matrix.weights = self.individual_learning(self.weight_matrix.weights, self.H, self.eta, best_solution_value)
+                    best_coalition_improved = False
+                self.H = []
+                cycle_count = 0
+
+            # Update the best solution fitness after the individual learning
+            if Fitness.fitness_function(C_new, self.cost_matrix) < best_solution_value:
+                best_solution_value = Fitness.fitness_function(C_new, self.cost_matrix)
 
                 # Mimetism learning if weight matrix is received from a neighbor
                 # W_received = self.receive_weight_matrix()
                 # if W_received:
                 #    self.W = self.mimetism_learning(self.W, W_received, self.rho)
+                #previous_state = self.H[-1][1]
 
-                cycle_count = 0;
-                previous_state = self.H[-1][1]
-                self.H = []
 
-            cycle_count += 1  # Increment cycle count
 
 
 if __name__ == '__main__':
