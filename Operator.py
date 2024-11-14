@@ -28,37 +28,41 @@ class OperatorFunctions:
             current_solution),
         #Operator.INTER_DEPOT_SWAPPING: lambda current_solution: OperatorFunctions.inter_depot_swapping(
         #    current_solution),
-        Operator.SINGLE_ACTION_REROUTING: lambda current_solution, cost_matrix: OperatorFunctions.single_action_rerouting(current_solution, cost_matrix)
+        Operator.SINGLE_ACTION_REROUTING: lambda current_solution, cost_matrix: OperatorFunctions.single_action_rerouting(
+            current_solution, cost_matrix),
     }
 
 
-    def choose_operator(W, condition):
+    @staticmethod
+    def choose_operator(weights, condition):
         """
         Stochastically choose an operator for a condition using the weights.
-        :param W: Weights
+        :param weights: Weights
         :param condition: Current condition
         :return: The chosen operator
         """
         # Choose an operator (e.g., mutation, crossover) based on weight matrix W and current state
         # For simplicity, we only apply a mutation operator in this example
-        row = W[condition.value]
+        row = weights[condition.value]
         operators = list(Operator)
 
         # Randomly select an operator based on weights in `row`
         chosen_operator = random.choices(operators, weights=row, k=1)[0]
         return chosen_operator
 
-    def apply_op(operator, current_solution, population, coalition_best_solution=None, cost_matrix=None):
+    @staticmethod
+    def apply_op(operator, current_solution, population, cost_matrix=None):
         """
         Apply the operator to the current solution and return the newly generated child solution.
         :param cost_matrix: Cost matrix to calculate the cost
         :param operator: The operator to be applied
         :param current_solution: The current solution
         :param population: The population
-        :param coalition_best_solution: The best solution among the coalition
         :return: A child solution
         """
         # Get the function based on the operator
+        print(f"Operator type: {type(operator)}, value: {operator}")
+
         if operator in OperatorFunctions.operator_function_map:
             # Call the function and pass arguments as needed
             if operator == Operator.BEST_COST_ROUTE_CROSSOVER:
@@ -75,21 +79,22 @@ class OperatorFunctions:
 
     # Diversifiers
     @staticmethod
-    def best_cost_route_crossover(current_solution, P, costMatrix):
+    def best_cost_route_crossover(current_solution, population, cost_matrix):
         """
         "For two parent chromosomes, select a route to be removed
         from each. The removed nodes are inserted into the
         other parent solution at the best insertion cost."
         At the moment it selects the best solution in P
         other than the current solution.
-        :param P: Population
+        :param cost_matrix: The cost matrix
+        :param population: Population
         :param current_solution: The current solution as a parent
         :return: A child solution
         """
         # Find the fittest solution in P that is not current_solution
         fittest_non_current_solution = min(
-            (sol for sol in P if sol != current_solution),
-            key=lambda sol: Fitness.fitness_function(sol, costMatrix)
+            (sol for sol in population if sol != current_solution),
+            key=lambda sol: Fitness.fitness_function(sol, cost_matrix)
         )
 
         # Randomly select a path (route) from fittest_non_current_solution
@@ -120,46 +125,50 @@ class OperatorFunctions:
             temp_count_counter += 1
 
         for task in selected_path[:]:  # Use a copy of selected_path to iterate safely
-            best_fitness = float('inf')
-            best_position = 0
-            best_agent = 0
-
-            # Try inserting the task at each position in the task order
-            for agent_index, count in enumerate(new_solution_task_counts):
-                # Calculate the insertion range for this agent
-                agent_start_index = sum(new_solution_task_counts[:agent_index])
-                agent_end_index = agent_start_index + count
-
-                # Try inserting within this agent's range
-                for pos in range(agent_start_index, agent_end_index + 1):
-                    temp_order = new_solution_task_order[:]
-                    temp_order.insert(pos, task)
-
-                    # Update task counts temporarily for fitness calculation
-                    temp_counts = new_solution_task_counts[:]
-                    temp_counts[agent_index] += 1
-
-                    # Calculate fitness with this temporary insertion
-                    temp_fitness = Fitness.fitness_function((temp_order, temp_counts), costMatrix)
-
-                    # If the new fitness is better, update best fitness, position, and agent
-                    if temp_fitness < best_fitness:
-                        best_fitness = temp_fitness
-                        best_position = pos
-                        best_agent = agent_index
-
-            # Insert the task at the best position found and update the task count for that agent
-            new_solution_task_order.insert(best_position, task)
-            new_solution_task_counts[best_agent] += 1
+            OperatorFunctions.find_best_task_position(cost_matrix, new_solution_task_counts, new_solution_task_order,
+                                                      task)
 
         # Return the modified solution as the child solution
         return new_solution_task_order, new_solution_task_counts # TODO: new_solution_task_counts came out as [6,6] for a 10 task problem
 
+    @staticmethod
+    def find_best_task_position(cost_matrix, new_solution_task_counts, new_solution_task_order, task):
+        best_fitness = float('inf')
+        best_position = 0
+        best_agent = 0
+        # Try inserting the task at each position in the task order
+        for agent_index, count in enumerate(new_solution_task_counts):
+            # Calculate the insertion range for this agent
+            agent_start_index = sum(new_solution_task_counts[:agent_index])
+            agent_end_index = agent_start_index + count
+
+            # Try inserting within this agent's range
+            for pos in range(agent_start_index, agent_end_index + 1):
+                temp_order = new_solution_task_order[:]
+                temp_order.insert(pos, task)
+
+                # Update task counts temporarily for fitness calculation
+                temp_counts = new_solution_task_counts[:]
+                temp_counts[agent_index] += 1
+
+                # Calculate fitness with this temporary insertion
+                temp_fitness = Fitness.fitness_function((temp_order, temp_counts), cost_matrix)
+
+                # If the new fitness is better, update the best fitness, position, and agent
+                if temp_fitness < best_fitness:
+                    best_fitness = temp_fitness
+                    best_position = pos
+                    best_agent = agent_index
+        # Insert the task at the best position found and update the task count for that agent
+        new_solution_task_order.insert(best_position, task)
+        new_solution_task_counts[best_agent] += 1
+
+    @staticmethod
     def intra_depot_removal(current_solution):
         """
-        "Two cutpoints in the chromosome associated with the
+        "Two cut-points in the chromosome associated with the
         robot initial position are selected and the genetic
-        material between these two cutpoints is reversed."
+        material between these two cut-points is reversed."
         :param current_solution: The current solution to be mutated
         :return: A child solution
         """
@@ -182,6 +191,7 @@ class OperatorFunctions:
             task_order[cut1:cut2 + 1] = reversed(task_order[cut1:cut2 + 1])
         return task_order, agent_task_counts
 
+    @staticmethod
     def intra_depot_swapping(current_solution):
         """
         Perform an intra-depot mutation by selecting two random routes
@@ -222,6 +232,7 @@ class OperatorFunctions:
         # Return the modified solution
         return task_order, agent_task_counts
 
+    @staticmethod
     def inter_depot_swapping(current_solution):
         """
         "Mutation of swapping nodes in the routes of different initial
@@ -236,6 +247,8 @@ class OperatorFunctions:
 
         return current_solution
 
+
+    @staticmethod
     def single_action_rerouting(current_solution, cost_matrix):
         """
         "Re-routing involves randomly selecting one action and removing
@@ -244,6 +257,7 @@ class OperatorFunctions:
 
         This selects a random task and inserts it in the best position
 
+        :param cost_matrix: The cost matrix
         :param current_solution: The current solution to be mutated
         :return: A modified solution with improved fitness
         """
@@ -263,38 +277,8 @@ class OperatorFunctions:
                            sum(agent_task_counts[:i]) <= task_index < sum(agent_task_counts[:i + 1]))
         agent_task_counts[agent_index] -= 1
 
-        # Initialize variables to track best insertion
-        best_fitness = float('inf')
-        best_position = 0
-        best_agent = 0
-
-        # Iterate over possible insertion positions
-        for i, count in enumerate(agent_task_counts):
-            start_index = sum(agent_task_counts[:i])
-            end_index = start_index + count
-
-            # Try inserting task at every possible position for the current agent
-            for pos in range(start_index, end_index + 1):
-                temp_order = task_order[:]
-                temp_order.insert(pos, task)
-
-                # Temporary counts for fitness calculation
-                temp_counts = agent_task_counts[:]
-                temp_counts[i] += 1
-
-                # Calculate fitness
-                temp_fitness = Fitness.fitness_function((temp_order, temp_counts), cost_matrix)
-
-                # Check if this position yields better fitness
-                if temp_fitness < best_fitness:
-                    best_fitness = temp_fitness
-                    best_position = pos
-                    best_agent = i
-
-        # Insert the task at the best position and update task counts
-        task_order.insert(best_position, task)
-        agent_task_counts[best_agent] += 1
-
+        OperatorFunctions.find_best_task_position(cost_matrix, agent_task_counts, task_order,
+                                                  task)
         return task_order, agent_task_counts
 
 
@@ -305,7 +289,7 @@ class OperatorFunctions:
     # One move: Remove a node and insert at position that maximises fitness
     # Maybe we don't need single action rerouting either.
 
-
+    @staticmethod
     def one_move(current_solution, cost_matrix):
         """
         "Removal of a node from the solution and insertion at the point
@@ -314,6 +298,7 @@ class OperatorFunctions:
         Move a task to a new position such that the move has the greatest increase in fitness
         Requires calculating the fitness of moving all tasks to all positions
 
+        :param cost_matrix: The cost matrix
         :param current_solution: The current solution to be optimised
         :return: A child solution
         """
@@ -381,6 +366,7 @@ class OperatorFunctions:
 
         return task_order, agent_task_counts
 
+    @staticmethod
     def two_swap(current_solution, cost_matrix):
         """
         "Swapping two pairs of subsequent tasks (each pair as a unit) from two different agents
