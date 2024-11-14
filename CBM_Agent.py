@@ -171,7 +171,6 @@ class CBMPopulationAgent:
                 self.population,
                 self.cost_matrix)
 
-
             # Update experience history
             gain = Fitness.fitness_function(self.current_solution, self.cost_matrix) - \
                    Fitness.fitness_function(c_new, self.cost_matrix)
