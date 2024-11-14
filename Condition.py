@@ -1,3 +1,5 @@
+from collections import Counter
+
 from Operator import Operator
 from enum import Enum
 
@@ -27,8 +29,16 @@ class ConditionFunctions:
                         #'Operator.Operator.INTER_DEPOT_SWAPPING,
                         Operator.Operator.SINGLE_ACTION_REROUTING}:
             return Condition.C_1
+            # New condition: check if both TWO_SWAP and ONE_MOVE have been used once without improvement
+        last_two_operators = [entry[1] for entry in H[-2:]]
+        if Counter(last_two_operators) == Counter([Operator.Operator.TWO_SWAP, Operator.Operator.ONE_MOVE]) and \
+                all(entry[2] == 0 for entry in H[-2:]):  # Check if gain is zero for both entries
+            return Condition.C_4
         if H[-1][1] == Operator.Operator.TWO_SWAP:
             return Condition.C_2
         if H[-1][1] == Operator.Operator.ONE_MOVE:
             return Condition.C_3
-        return Condition.C_4 # TODO: This needs changing to see if cost has decreased since applying intensifiers.
+
+    def no_improvement_in_best_solution(H):
+        # Check if there has been no change in the best solution greater than epsilon
+        return False  # Placeholder; replace with actual condition

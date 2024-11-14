@@ -113,8 +113,6 @@ class CBMPopulationAgent:
         best_solution = min(population, key=lambda sol: Fitness.fitness_function(
             sol, cost_matrix))  # Assuming lower score is better
         return best_solution
-
-    # TODO: Maybe remove this?
     def init_experience_memory(self):
         """
         Initialise the experience memory. Maybe unnecessary?
@@ -152,10 +150,10 @@ class CBMPopulationAgent:
 
         # Get elements before index_best_fitness
         elements_before_best = H[:index_best_fitness+1] if index_best_fitness != -1 else []
-        condition_operator_pairs = [(item[1], item[2]) for item in elements_before_best]
+        condition_operator_pairs = [(item[0], item[1]) for item in elements_before_best]
         condition_operator_pairs = list(set(condition_operator_pairs))
         for pair in condition_operator_pairs:
-            W[pair[0].value][pair[1]] += eta # TODO: Eta2 for beating coalition fitness
+            W[pair[0].value][pair[1].value-1] += eta # TODO: Eta2 for beating coalition fitness
         return W
 
     def broadcast_weight_matrix(self, W):
@@ -171,10 +169,6 @@ class CBMPopulationAgent:
 
     def stopping_criterion(self):
         # Define a stopping criterion (e.g., a fixed number of iterations)
-        return False  # Placeholder; replace with actual condition
-
-    def no_improvement_in_best_solution(self):
-        # Check if there has been no change in the best solution greater than epsilon
         return False  # Placeholder; replace with actual condition
 
     def end_of_DI_cycle(self, cycle_count, n_cycles):
@@ -196,9 +190,9 @@ class CBMPopulationAgent:
             condition = ConditionFunctions.perceive_condition(self.H)
 
             # Check for minimal improvement in solution over n_cycles
-            if cycle_count >= self.n_cycles and self.no_improvement_in_best_solution():
+            if cycle_count >= self.n_cycles:
                 self.evaluate_population(self.P, self.cost_matrix)
-                self.current_solution = self.select_solution(self.P)
+                self.current_solution = self.select_solution(self.P, self.cost_matrix)
                 cycle_count = 0  # Reset cycle count
 
             # Choose and apply an operator
