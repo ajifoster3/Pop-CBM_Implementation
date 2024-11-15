@@ -13,4 +13,4 @@ Pereira, F.B., Tavares, J., 2009. Bio-inspired Algorithms for the Vehicle Routin
 
 ## Overview
 
-The CBM-Pop is a multi-agent distributed hyper-heuristic algorithm which simultaneously solves an optimisation problem and optimises the meta-heuristic for the problem.
+The CBM-Pop is a multi-agent distributed hyper-heuristic algorithm that simultaneously solves an optimisation problem while optimising the meta-heuristic solving the problem.
