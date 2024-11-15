@@ -1,5 +1,6 @@
 import random
 from copy import deepcopy
+from random import sample
 
 import numpy as np
 
@@ -163,7 +164,7 @@ class CBMPopulationAgent:
 
             # Check for minimal improvement in solution over n_cycles
             if no_improvement_attempt_count >= self.no_improvement_attempts:
-                self.current_solution = self.select_solution() # TODO: Random solution selector
+                self.current_solution = self.select_random_solution()
                 no_improvement_attempt_count = 0  # Reset cycle count
 
             # Choose and apply an operator
@@ -218,7 +219,10 @@ class CBMPopulationAgent:
                 #    self.W = self.mimetism_learning(self.W, W_received, self.rho)
                 #previous_state = self.previous_experience[-1][1]
 
-
+    def select_random_solution(self):
+        temp_solution = sample(population=self.population, k=1)[0]
+        if temp_solution != self.current_solution:
+            return temp_solution
 
 
 if __name__ == '__main__':
