@@ -17,12 +17,14 @@ class CBMPopulationAgent:
                  di_cycle_length,
                  epsilon,
                  num_tasks,
-                 num_agents):
+                 num_agents,
+                 num_iterations):
         self.pop_size = pop_size  # Population size
         self.eta = eta  # Reinforcement learning factor
         self.rho = rho  # Mimetism rate
         # Number of cycles before changing exploration origin
         self.di_cycle_length = di_cycle_length
+        self.num_iterations = num_iterations # Stopping criteria
         self.epsilon = epsilon  # Minimal solution improvement
         self.num_tasks = num_tasks  # Number of tasks
         self.num_agents = num_agents  # Number of agents
@@ -134,12 +136,9 @@ class CBMPopulationAgent:
 
         return self.weight_matrix.weights
 
-    # TODO: Implement termination criteria
-    # TODO: Some of these methods maybe unnecessary
-
-    def stopping_criterion(self):
+    def stopping_criterion(self, iteration_count):
         # Define a stopping criterion (e.g., a fixed number of iterations)
-        return False  # Placeholder; replace with actual condition
+        return iteration_count > self.num_iterations
 
     def end_of_di_cycle(self, cycle_count):
         if cycle_count >= self.di_cycle_length:
@@ -151,11 +150,12 @@ class CBMPopulationAgent:
         return None
 
     def run(self):
-        cycle_count = 0
         di_cycle_count = 0
+        iteration_count = 0
         best_coalition_improved = False
         best_solution_value = Fitness.fitness_function(self.current_solution, self.cost_matrix)
-        while not self.stopping_criterion():
+
+        while not self.stopping_criterion(iteration_count):
             # Calculate the current state
             condition = ConditionFunctions.perceive_condition(self.previous_experience)
 
@@ -204,6 +204,8 @@ class CBMPopulationAgent:
             if Fitness.fitness_function(c_new, self.cost_matrix) < best_solution_value:
                 best_solution_value = Fitness.fitness_function(c_new, self.cost_matrix)
 
+            iteration_count += 1
+
                 # Mimetism learning if weight matrix is received from a neighbor
                 # W_received = self.receive_weight_matrix()
                 # if W_received:
@@ -214,5 +216,5 @@ class CBMPopulationAgent:
 
 
 if __name__ == '__main__':
-    cbm = CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5)
+    cbm = CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5, 500)
     cbm.run()
