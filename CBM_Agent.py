@@ -18,7 +18,8 @@ class CBMPopulationAgent:
                  epsilon,
                  num_tasks,
                  num_agents,
-                 num_iterations):
+                 num_iterations,
+                 num_solution_attempts):
         self.pop_size = pop_size  # Population size
         self.eta = eta  # Reinforcement learning factor
         self.rho = rho  # Mimetism rate
@@ -38,6 +39,7 @@ class CBMPopulationAgent:
         self.current_solution = self.select_solution()
         self.weight_matrix = WeightMatrix(self.num_intensifiers, self.num_diversifiers)
         self.previous_experience = []
+        self.no_improvement_attempts = num_solution_attempts
 
     def generate_problem(self):
         """
@@ -154,15 +156,15 @@ class CBMPopulationAgent:
         iteration_count = 0
         best_coalition_improved = False
         best_solution_value = Fitness.fitness_function(self.current_solution, self.cost_matrix)
-
+        no_improvement_attempt_count = 0
         while not self.stopping_criterion(iteration_count):
             # Calculate the current state
             condition = ConditionFunctions.perceive_condition(self.previous_experience)
 
             # Check for minimal improvement in solution over n_cycles
-            if di_cycle_count >= self.di_cycle_length:
-                self.current_solution = self.select_solution()
-                di_cycle_count = 0  # Reset cycle count
+            if no_improvement_attempt_count >= self.no_improvement_attempts:
+                self.current_solution = self.select_solution() # TODO: Random solution selector
+                no_improvement_attempt_count = 0  # Reset cycle count
 
             # Choose and apply an operator
             operator = OperatorFunctions.choose_operator(self.weight_matrix.weights, condition)
@@ -188,6 +190,13 @@ class CBMPopulationAgent:
                 self.coalition_best_solution = deepcopy(c_new)
                 best_coalition_improved = True
 
+            # Update the best solution fitness after the individual learning
+            if Fitness.fitness_function(c_new, self.cost_matrix) < best_solution_value:
+                best_solution_value = Fitness.fitness_function(c_new, self.cost_matrix)
+                no_improvement_attempt_count = 0
+            else:
+                no_improvement_attempt_count += 1
+
             self.current_solution = c_new
 
             di_cycle_count += 1  # Increment cycle count
@@ -200,9 +209,6 @@ class CBMPopulationAgent:
                 self.previous_experience = []
                 di_cycle_count = 0
 
-            # Update the best solution fitness after the individual learning
-            if Fitness.fitness_function(c_new, self.cost_matrix) < best_solution_value:
-                best_solution_value = Fitness.fitness_function(c_new, self.cost_matrix)
 
             iteration_count += 1
 
@@ -216,5 +222,5 @@ class CBMPopulationAgent:
 
 
 if __name__ == '__main__':
-    cbm = CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5, 500)
+    cbm = CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5, 500, 100)
     cbm.run()
