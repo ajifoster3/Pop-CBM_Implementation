@@ -152,6 +152,7 @@ class CBMPopulationAgent:
 
     def run(self):
         cycle_count = 0
+        di_cycle_count = 0
         best_coalition_improved = False
         best_solution_value = Fitness.fitness_function(self.current_solution, self.cost_matrix)
         while not self.stopping_criterion():
@@ -159,9 +160,9 @@ class CBMPopulationAgent:
             condition = ConditionFunctions.perceive_condition(self.previous_experience)
 
             # Check for minimal improvement in solution over n_cycles
-            if cycle_count >= self.di_cycle_length:
+            if di_cycle_count >= self.di_cycle_length:
                 self.current_solution = self.select_solution()
-                cycle_count = 0  # Reset cycle count
+                di_cycle_count = 0  # Reset cycle count
 
             # Choose and apply an operator
             operator = OperatorFunctions.choose_operator(self.weight_matrix.weights, condition)
@@ -189,15 +190,15 @@ class CBMPopulationAgent:
 
             self.current_solution = c_new
 
-            cycle_count += 1  # Increment cycle count
+            di_cycle_count += 1  # Increment cycle count
 
             # Learning mechanisms at the end of a Diversification-Intensification (D-I) cycle
-            if self.end_of_di_cycle(cycle_count):
+            if self.end_of_di_cycle(di_cycle_count):
                 if best_coalition_improved:
                     self.weight_matrix.weights = self.individual_learning()
                     best_coalition_improved = False
                 self.previous_experience = []
-                cycle_count = 0
+                di_cycle_count = 0
 
             # Update the best solution fitness after the individual learning
             if Fitness.fitness_function(c_new, self.cost_matrix) < best_solution_value:
