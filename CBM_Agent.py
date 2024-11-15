@@ -14,7 +14,7 @@ class CBMPopulationAgent:
                  pop_size,
                  eta,
                  rho,
-                 n_cycles,
+                 di_cycle_length,
                  epsilon,
                  num_tasks,
                  num_agents):
@@ -22,7 +22,7 @@ class CBMPopulationAgent:
         self.eta = eta  # Reinforcement learning factor
         self.rho = rho  # Mimetism rate
         # Number of cycles before changing exploration origin
-        self.n_cycles = n_cycles
+        self.di_cycle_length = di_cycle_length
         self.epsilon = epsilon  # Minimal solution improvement
         self.num_tasks = num_tasks  # Number of tasks
         self.num_agents = num_agents  # Number of agents
@@ -142,7 +142,7 @@ class CBMPopulationAgent:
         return False  # Placeholder; replace with actual condition
 
     def end_of_di_cycle(self, cycle_count):
-        if cycle_count >= self.n_cycles:
+        if cycle_count >= self.di_cycle_length:
             return True
         return False  # Placeholder; replace with actual condition
 
@@ -159,7 +159,7 @@ class CBMPopulationAgent:
             condition = ConditionFunctions.perceive_condition(self.previous_experience)
 
             # Check for minimal improvement in solution over n_cycles
-            if cycle_count >= self.n_cycles:
+            if cycle_count >= self.di_cycle_length:
                 self.current_solution = self.select_solution()
                 cycle_count = 0  # Reset cycle count
 
