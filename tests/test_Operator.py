@@ -1,3 +1,4 @@
+import unittest
 from unittest import TestCase
 
 from Operator import OperatorFunctions
@@ -12,11 +13,13 @@ class TestOperatorFunctions(TestCase):
             self.assertTrue(operator.value >= 3)
             self.assertFalse(operator.value < 3)
 
+    @unittest.skip("Not yet implemented")
     def test_apply_op(self):
-        self.assertTrue(True) #TODO: Implement maybe
+        self.fail() #TODO: Implement maybe
 
+    @unittest.skip("Not yet implemented")
     def test_best_cost_route_crossover(self):
-        self.assertTrue(True) #TODO: Implement maybe
+        self.fail() #TODO: Implement maybe
 
     def test_find_best_task_position(self):
 
@@ -64,16 +67,19 @@ class TestOperatorFunctions(TestCase):
         self.assertEqual(solution_task_order, [2, 0, 1, 3])
         self.assertEqual(solution_task_counts, [3, 1])
 
-
+    @unittest.skip("Not yet implemented")
     def test_intra_depot_removal(self):
         self.fail()
 
+    @unittest.skip("Not yet implemented")
     def test_intra_depot_swapping(self):
         self.fail()
 
+    @unittest.skip("Not yet implemented")
     def test_inter_depot_swapping(self):
         self.fail()
 
+    @unittest.skip("Not yet implemented")
     def test_single_action_rerouting(self):
         self.fail()
 
@@ -101,4 +107,32 @@ class TestOperatorFunctions(TestCase):
         self.assertEqual(task_counts, [3, 1])
 
     def test_two_swap(self):
-        self.fail()
+        solution_task_counts = [4, 4]
+        solution_task_order = [0, 5, 6, 3, 4, 1, 2, 7]
+        solution = [solution_task_order, solution_task_counts]
+        cost_matrix = [[0, 3, 4, 6, 13, 13, 13, 14],
+                       [3, 0, 1, 4, 13, 13, 13, 14],
+                       [4, 1, 0, 3, 13, 13, 13, 14],
+                       [6, 3, 4, 0, 13, 13, 13, 14],
+                       [13, 13, 13, 14, 6, 3, 4, 0],
+                       [13, 13, 13, 14, 4, 1, 0, 3],
+                       [13, 13, 13, 14, 3, 0, 1, 4],
+                       [13, 13, 13, 14, 0, 3, 4, 6]]
+        task_order, task_counts = OperatorFunctions.two_swap(solution, cost_matrix)
+        self.assertEqual(task_order, [0, 1, 2, 3, 4, 5, 6, 7])
+        self.assertEqual(task_counts, [4, 4])
+
+        solution_task_counts = [4, 4]
+        solution_task_order = [4, 1, 2, 7, 0, 5, 6, 3]
+        solution = [solution_task_order, solution_task_counts]
+        cost_matrix = [[0, 3, 4, 6, 13, 13, 13, 14],
+                       [3, 0, 1, 4, 13, 13, 13, 14],
+                       [4, 1, 0, 3, 13, 13, 13, 14],
+                       [6, 3, 4, 0, 13, 13, 13, 14],
+                       [13, 13, 13, 14, 6, 3, 4, 0],
+                       [13, 13, 13, 14, 4, 1, 0, 3],
+                       [13, 13, 13, 14, 3, 0, 1, 4],
+                       [13, 13, 13, 14, 0, 3, 4, 6]]
+        task_order, task_counts = OperatorFunctions.two_swap(solution, cost_matrix)
+        self.assertEqual(task_order, [4, 5, 6, 7, 0, 1, 2, 3])
+        self.assertEqual(task_counts, [4, 4])
