@@ -3,7 +3,7 @@ import zmq.asyncio
 import asyncio
 
 # Async Subscriber Class
-class AsyncZMQSubscriber:
+class AsyncSubscriber:
     def __init__(self, address, port, topics=None):
         self.context = zmq.asyncio.Context()
         self.socket = self.context.socket(zmq.SUB)
