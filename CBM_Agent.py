@@ -1,3 +1,4 @@
+import threading
 import random
 from copy import deepcopy
 from random import sample
@@ -20,7 +21,8 @@ class CBMPopulationAgent:
                  num_tasks,
                  num_agents,
                  num_iterations,
-                 num_solution_attempts):
+                 num_solution_attempts,
+                 agent_id):
         self.pop_size = pop_size  # Population size
         self.eta = eta  # Reinforcement learning factor
         self.rho = rho  # Mimetism rate
@@ -41,6 +43,7 @@ class CBMPopulationAgent:
         self.weight_matrix = WeightMatrix(self.num_intensifiers, self.num_diversifiers)
         self.previous_experience = []
         self.no_improvement_attempts = num_solution_attempts
+        self.agent_ID = agent_id
 
     def generate_problem(self):
         """
@@ -159,15 +162,12 @@ class CBMPopulationAgent:
         best_solution_value = Fitness.fitness_function(self.current_solution, self.cost_matrix)
         no_improvement_attempt_count = 0
         while not self.stopping_criterion(iteration_count):
-            # Calculate the current state
             condition = ConditionFunctions.perceive_condition(self.previous_experience)
 
-            # Check for minimal improvement in solution over n_cycles
             if no_improvement_attempt_count >= self.no_improvement_attempts:
                 self.current_solution = self.select_random_solution()
-                no_improvement_attempt_count = 0  # Reset cycle count
+                no_improvement_attempt_count = 0
 
-            # Choose and apply an operator
             operator = OperatorFunctions.choose_operator(self.weight_matrix.weights, condition)
             c_new = OperatorFunctions.apply_op(
                 operator,
@@ -175,23 +175,18 @@ class CBMPopulationAgent:
                 self.population,
                 self.cost_matrix)
 
-            # Update experience history
             gain = Fitness.fitness_function(c_new, self.cost_matrix) - \
                    Fitness.fitness_function(self.current_solution, self.cost_matrix)
             self.update_experience(condition, operator, gain)
-            print(operator, condition)
-            print(Fitness.fitness_function(self.current_solution, self.cost_matrix))
 
-            # Update solutions if there is an improvement in coalition_best_solution
+            print(f"Agent {self.agent_ID}: {Fitness.fitness_function(self.current_solution, self.cost_matrix)}")
+
             if self.coalition_best_solution is None or \
-                    Fitness.fitness_function(c_new,
-                                             self.cost_matrix) < Fitness.fitness_function(
-                self.coalition_best_solution,
-                self.cost_matrix):
+                    Fitness.fitness_function(c_new, self.cost_matrix) < Fitness.fitness_function(
+                self.coalition_best_solution, self.cost_matrix):
                 self.coalition_best_solution = deepcopy(c_new)
                 best_coalition_improved = True
 
-            # Update the best solution fitness after the individual learning
             if Fitness.fitness_function(c_new, self.cost_matrix) < best_solution_value:
                 best_solution_value = Fitness.fitness_function(c_new, self.cost_matrix)
                 no_improvement_attempt_count = 0
@@ -199,10 +194,8 @@ class CBMPopulationAgent:
                 no_improvement_attempt_count += 1
 
             self.current_solution = c_new
+            di_cycle_count += 1
 
-            di_cycle_count += 1  # Increment cycle count
-
-            # Learning mechanisms at the end of a Diversification-Intensification (D-I) cycle
             if self.end_of_di_cycle(di_cycle_count):
                 if best_coalition_improved:
                     self.weight_matrix.weights = self.individual_learning()
@@ -210,14 +203,7 @@ class CBMPopulationAgent:
                 self.previous_experience = []
                 di_cycle_count = 0
 
-
             iteration_count += 1
-
-                # Mimetism learning if weight matrix is received from a neighbor
-                # W_received = self.receive_weight_matrix()
-                # if W_received:
-                #    self.W = self.mimetism_learning(self.W, W_received, self.rho)
-                #previous_state = self.previous_experience[-1][1]
 
     def select_random_solution(self):
         temp_solution = sample(population=self.population, k=1)[0]
@@ -225,6 +211,21 @@ class CBMPopulationAgent:
             return temp_solution
 
 
+def main():
+    agents = [
+        CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5, 500, 100, agent_id=i)
+        for i in range(3)
+    ]
+
+    threads = []
+    for agent in agents:
+        thread = threading.Thread(target=agent.run)
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+
 if __name__ == '__main__':
-    cbm = CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5, 500, 100)
-    cbm.run()
+    main()
