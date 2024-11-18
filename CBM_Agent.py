@@ -1,14 +1,11 @@
 import random
 from copy import deepcopy
 from random import sample
-
 import numpy as np
-
 from Condition import ConditionFunctions
 from Fitness import Fitness
 from Operator import OperatorFunctions
 from WeightMatrix import WeightMatrix
-
 
 class CBMPopulationAgent:
     def __init__(self,
@@ -210,7 +207,6 @@ class CBMPopulationAgent:
                 self.previous_experience = []
                 di_cycle_count = 0
 
-
             iteration_count += 1
 
                 # Mimetism learning if weight matrix is received from a neighbor
@@ -223,7 +219,6 @@ class CBMPopulationAgent:
         temp_solution = sample(population=self.population, k=1)[0]
         if temp_solution != self.current_solution:
             return temp_solution
-
 
 if __name__ == '__main__':
     cbm = CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5, 500, 100)
