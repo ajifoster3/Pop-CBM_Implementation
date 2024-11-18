@@ -1,4 +1,4 @@
-# Population-Based Coalition-Based Metaheuristic (PBCM)
+# Population-Based Coalition-Based Metaheuristic (CBM-POP)
 
 This repository provides a Python implementation of the **Population-based Coalition-based metaheuristic (CBM-POP)** proposed by Ferreira et al. in their 2024 paper:
 
