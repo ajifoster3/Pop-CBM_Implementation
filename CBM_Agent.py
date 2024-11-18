@@ -1,3 +1,4 @@
+import threading
 import random
 from copy import deepcopy
 from random import sample
@@ -17,7 +18,8 @@ class CBMPopulationAgent:
                  num_tasks,
                  num_agents,
                  num_iterations,
-                 num_solution_attempts):
+                 num_solution_attempts,
+                 agent_id):
         self.pop_size = pop_size  # Population size
         self.eta = eta  # Reinforcement learning factor
         self.rho = rho  # Mimetism rate
@@ -38,6 +40,7 @@ class CBMPopulationAgent:
         self.weight_matrix = WeightMatrix(self.num_intensifiers, self.num_diversifiers)
         self.previous_experience = []
         self.no_improvement_attempts = num_solution_attempts
+        self.agent_ID = agent_id
 
     def generate_problem(self):
         """
@@ -176,15 +179,12 @@ class CBMPopulationAgent:
             gain = Fitness.fitness_function(c_new, self.cost_matrix) - \
                    Fitness.fitness_function(self.current_solution, self.cost_matrix)
             self.update_experience(condition, operator, gain)
-            print(operator, condition)
-            print(Fitness.fitness_function(self.current_solution, self.cost_matrix))
 
-            # Update solutions if there is an improvement in coalition_best_solution
+            print(f"Agent {self.agent_ID}: {Fitness.fitness_function(self.current_solution, self.cost_matrix)}")
+
             if self.coalition_best_solution is None or \
-                    Fitness.fitness_function(c_new,
-                                             self.cost_matrix) < Fitness.fitness_function(
-                self.coalition_best_solution,
-                self.cost_matrix):
+                    Fitness.fitness_function(c_new, self.cost_matrix) < Fitness.fitness_function(
+                self.coalition_best_solution, self.cost_matrix):
                 self.coalition_best_solution = deepcopy(c_new)
                 best_coalition_improved = True
 
@@ -209,17 +209,27 @@ class CBMPopulationAgent:
 
             iteration_count += 1
 
-                # Mimetism learning if weight matrix is received from a neighbor
-                # W_received = self.receive_weight_matrix()
-                # if W_received:
-                #    self.W = self.mimetism_learning(self.W, W_received, self.rho)
-                #previous_state = self.previous_experience[-1][1]
-
     def select_random_solution(self):
         temp_solution = sample(population=self.population, k=1)[0]
         if temp_solution != self.current_solution:
             return temp_solution
 
+
+def main():
+    agents = [
+        CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5, 500, 100, agent_id=i)
+        for i in range(3)
+    ]
+
+    threads = []
+    for agent in agents:
+        thread = threading.Thread(target=agent.run)
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+
 if __name__ == '__main__':
-    cbm = CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5, 500, 100)
-    cbm.run()
+    main()
