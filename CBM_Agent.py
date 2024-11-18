@@ -9,6 +9,7 @@ from Operator import OperatorFunctions
 from WeightMatrix import WeightMatrix
 
 class CBMPopulationAgent:
+
     def __init__(self,
                  pop_size,
                  eta,
@@ -16,7 +17,7 @@ class CBMPopulationAgent:
                  di_cycle_length,
                  epsilon,
                  num_tasks,
-                 num_agents,
+                 num_TSP_agents,
                  num_iterations,
                  num_solution_attempts,
                  agent_id):
@@ -28,7 +29,7 @@ class CBMPopulationAgent:
         self.num_iterations = num_iterations # Stopping criteria
         self.epsilon = epsilon  # Minimal solution improvement
         self.num_tasks = num_tasks  # Number of tasks
-        self.num_agents = num_agents  # Number of agents
+        self.num_agents = num_TSP_agents  # Number of agents
         self.agent_best_solution = None  # Best solution found by the agent
         self.coalition_best_solution = None  # Best found solution
         self.num_intensifiers = 2
