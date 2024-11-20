@@ -1,26 +1,21 @@
-import threading
 import random
+import numpy as np
 from copy import deepcopy
 from random import sample
-import numpy as np
-from Condition import ConditionFunctions
-from Fitness import Fitness
-from Operator import OperatorFunctions
-from WeightMatrix import WeightMatrix
+from cbm_pop.Condition import ConditionFunctions
+from cbm_pop.Fitness import Fitness
+from cbm_pop.Operator import OperatorFunctions
+from cbm_pop.WeightMatrix import WeightMatrix
+from rclpy.node import Node
+from std_msgs.msg import String, Float32
+import rclpy
+from rclpy.executors import MultiThreadedExecutor
 
-class CBMPopulationAgent:
+class CBMPopulationAgent(Node):
 
-    def __init__(self,
-                 pop_size,
-                 eta,
-                 rho,
-                 di_cycle_length,
-                 epsilon,
-                 num_tasks,
-                 num_TSP_agents,
-                 num_iterations,
-                 num_solution_attempts,
-                 agent_id):
+    def __init__(self, pop_size, eta, rho, di_cycle_length, epsilon, num_tasks, num_tsp_agents, num_iterations,
+                 num_solution_attempts, agent_id, node_name: str):
+        super().__init__(node_name)
         self.pop_size = pop_size  # Population size
         self.eta = eta  # Reinforcement learning factor
         self.rho = rho  # Mimetism rate
@@ -29,7 +24,7 @@ class CBMPopulationAgent:
         self.num_iterations = num_iterations # Stopping criteria
         self.epsilon = epsilon  # Minimal solution improvement
         self.num_tasks = num_tasks  # Number of tasks
-        self.num_agents = num_TSP_agents  # Number of agents
+        self.num_tsp_agents = num_tsp_agents  # Number of agents
         self.agent_best_solution = None  # Best solution found by the agent
         self.coalition_best_solution = None  # Best found solution
         self.num_intensifiers = 2
@@ -42,6 +37,14 @@ class CBMPopulationAgent:
         self.previous_experience = []
         self.no_improvement_attempts = num_solution_attempts
         self.agent_ID = agent_id
+        # ROS publishers and subscribers
+        self.solution_publisher = self.create_publisher(String, 'best_solution', 10)
+        self.solution_subscriber = self.create_subscription(
+            String, 'weight_update', self.solution_update_callback, 10)
+        self.weight_publisher = self.create_publisher(String, 'weight_matrix', 10)
+        self.weight_subscriber = self.create_subscription(
+            String, 'weight_update', self.weight_update_callback, 10)
+
 
     def generate_problem(self):
         """
@@ -77,9 +80,9 @@ class CBMPopulationAgent:
 
             # Generate non-zero task counts for each agent that sum to number_tasks
             # Start with each agent assigned at least 1 task
-            counts = [1] * self.num_agents
-            for _ in range(self.num_tasks - self.num_agents):
-                counts[random.randint(0, self.num_agents - 1)] += 1
+            counts = [1] * self.num_tsp_agents
+            for _ in range(self.num_tasks - self.num_tsp_agents):
+                counts[random.randint(0, self.num_tsp_agents - 1)] += 1
 
             # Add both allocation and counts to the population
             population.append((allocation, counts))
@@ -153,7 +156,15 @@ class CBMPopulationAgent:
         # Placeholder for receiving a weight matrix from a neighboring agent, if available
         return None
 
-    def run(self):
+    def weight_update_callback(self, msg):
+        # Callback to process incoming weight matrix updates
+        self.get_logger().info(f"Received weight update: {msg.data}")
+
+    def solution_update_callback(self, msg):
+        # Callback to process incoming weight matrix updates
+        self.get_logger().info(f"Received weight update: {msg.data}")
+
+    async def run(self):
         di_cycle_count = 0
         iteration_count = 0
         best_coalition_improved = False
@@ -208,6 +219,7 @@ class CBMPopulationAgent:
                 self.previous_experience = []
                 di_cycle_count = 0
 
+
             iteration_count += 1
 
     def select_random_solution(self):
@@ -215,22 +227,27 @@ class CBMPopulationAgent:
         if temp_solution != self.current_solution:
             return temp_solution
 
+def main(args=None):
+    rclpy.init(args=args)
 
-def main():
-    agents = [
-        CBMPopulationAgent(20, 0.5, 1, 5, 0.5, 100, 5, 500, 100, agent_id=i)
-        for i in range(3)
-    ]
+    # Create and run the agent node
+    node_name = "cbm_population_agent"
+    agent = CBMPopulationAgent(
+        pop_size=10, eta=0.1, rho=0.1, di_cycle_length=5, epsilon=0.01,
+        num_tasks=20, num_tsp_agents=5, num_iterations=1000,
+        num_solution_attempts=20, agent_id=1, node_name=node_name
+    )
 
-    threads = []
-    for agent in agents:
-        thread = threading.Thread(target=agent.run)
-        threads.append(thread)
-        thread.start()
+    executor = MultiThreadedExecutor()
+    executor.add_node(agent)
 
-    for thread in threads:
-        thread.join()
-
+    try:
+        executor.spin()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        agent.destroy_node()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

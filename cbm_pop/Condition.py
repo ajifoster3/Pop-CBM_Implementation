@@ -1,9 +1,6 @@
 from collections import Counter
-
-from Operator import Operator
+from cbm_pop.Operator import Operator
 from enum import Enum
-
-import Operator
 
 class Condition(Enum):
     C_0 = 0 # Starting a DI-cycle

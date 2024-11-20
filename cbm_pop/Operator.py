@@ -1,9 +1,7 @@
 import random
 from copy import deepcopy
 from enum import Enum
-
-from Fitness import Fitness
-
+from cbm_pop.Fitness import Fitness
 
 class Operator(Enum):
     TWO_SWAP = 1
