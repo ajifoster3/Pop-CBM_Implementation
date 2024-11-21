@@ -10,26 +10,25 @@ from rclpy.node import Node
 from std_msgs.msg import String, Float32
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
+import threading
 
 class CBMPopulationAgent(Node):
 
     def __init__(self, pop_size, eta, rho, di_cycle_length, epsilon, num_tasks, num_tsp_agents, num_iterations,
                  num_solution_attempts, agent_id, node_name: str):
         super().__init__(node_name)
-        self.pop_size = pop_size  # Population size
-        self.eta = eta  # Reinforcement learning factor
-        self.rho = rho  # Mimetism rate
-        # Number of cycles before changing exploration origin
+        self.pop_size = pop_size
+        self.eta = eta
+        self.rho = rho
         self.di_cycle_length = di_cycle_length
-        self.num_iterations = num_iterations # Stopping criteria
-        self.epsilon = epsilon  # Minimal solution improvement
-        self.num_tasks = num_tasks  # Number of tasks
-        self.num_tsp_agents = num_tsp_agents  # Number of agents
-        self.agent_best_solution = None  # Best solution found by the agent
-        self.coalition_best_solution = None  # Best found solution
+        self.num_iterations = num_iterations
+        self.epsilon = epsilon
+        self.num_tasks = num_tasks
+        self.num_tsp_agents = num_tsp_agents
+        self.agent_best_solution = None
+        self.coalition_best_solution = None
         self.num_intensifiers = 2
         self.num_diversifiers = 4
-        # Initialize population, weight matrix, and experience memory
         self.population = self.generate_population()
         self.cost_matrix = self.generate_problem()
         self.current_solution = self.select_solution()
@@ -37,6 +36,14 @@ class CBMPopulationAgent(Node):
         self.previous_experience = []
         self.no_improvement_attempts = num_solution_attempts
         self.agent_ID = agent_id
+
+        # Iteration state
+        self.iteration_count = 0
+        self.di_cycle_count = 0
+        self.best_solution_value = Fitness.fitness_function(self.current_solution, self.cost_matrix)
+        self.no_improvement_attempt_count = 0
+        self.best_coalition_improved = False
+
         # ROS publishers and subscribers
         self.solution_publisher = self.create_publisher(String, 'best_solution', 10)
         self.solution_subscriber = self.create_subscription(
@@ -44,6 +51,9 @@ class CBMPopulationAgent(Node):
         self.weight_publisher = self.create_publisher(String, 'weight_matrix', 10)
         self.weight_subscriber = self.create_subscription(
             String, 'weight_update', self.weight_update_callback, 10)
+
+        # Timer for periodic execution of the run loop
+        self.run_timer = self.create_timer(0.1, self.run_step)
 
 
     def generate_problem(self):
@@ -164,63 +174,58 @@ class CBMPopulationAgent(Node):
         # Callback to process incoming weight matrix updates
         self.get_logger().info(f"Received weight update: {msg.data}")
 
-    async def run(self):
-        di_cycle_count = 0
-        iteration_count = 0
-        best_coalition_improved = False
-        best_solution_value = Fitness.fitness_function(self.current_solution, self.cost_matrix)
-        no_improvement_attempt_count = 0
-        while not self.stopping_criterion(iteration_count):
-            # Calculate the current state
-            condition = ConditionFunctions.perceive_condition(self.previous_experience)
+    def run_step(self):
+        """
+        A single step of the `run` method, executed periodically by the ROS2 timer.
+        """
+        if self.stopping_criterion(self.iteration_count):
+            self.get_logger().info("Stopping criterion met. Shutting down.")
+            self.run_timer.cancel()
+            return
 
-            # Check for minimal improvement in solution over n_cycles
-            if no_improvement_attempt_count >= self.no_improvement_attempts:
-                self.current_solution = self.select_random_solution()
-                no_improvement_attempt_count = 0  # Reset cycle count
+        condition = ConditionFunctions.perceive_condition(self.previous_experience)
 
-            # Choose and apply an operator
-            operator = OperatorFunctions.choose_operator(self.weight_matrix.weights, condition)
-            c_new = OperatorFunctions.apply_op(
-                operator,
-                self.current_solution,
-                self.population,
-                self.cost_matrix)
+        if self.no_improvement_attempt_count >= self.no_improvement_attempts:
+            self.current_solution = self.select_random_solution()
+            self.no_improvement_attempt_count = 0
 
-            # Update experience history
-            gain = Fitness.fitness_function(c_new, self.cost_matrix) - \
-                   Fitness.fitness_function(self.current_solution, self.cost_matrix)
-            self.update_experience(condition, operator, gain)
+        operator = OperatorFunctions.choose_operator(self.weight_matrix.weights, condition)
+        c_new = OperatorFunctions.apply_op(
+            operator,
+            self.current_solution,
+            self.population,
+            self.cost_matrix
+        )
 
-            print(f"Agent {self.agent_ID}: {Fitness.fitness_function(self.current_solution, self.cost_matrix)}")
+        gain = Fitness.fitness_function(c_new, self.cost_matrix) - \
+               Fitness.fitness_function(self.current_solution, self.cost_matrix)
+        self.update_experience(condition, operator, gain)
 
-            if self.coalition_best_solution is None or \
-                    Fitness.fitness_function(c_new, self.cost_matrix) < Fitness.fitness_function(
-                self.coalition_best_solution, self.cost_matrix):
-                self.coalition_best_solution = deepcopy(c_new)
-                best_coalition_improved = True
+        if self.coalition_best_solution is None or \
+                Fitness.fitness_function(c_new, self.cost_matrix) < Fitness.fitness_function(
+                    self.coalition_best_solution, self.cost_matrix):
+            self.coalition_best_solution = deepcopy(c_new)
+            self.best_coalition_improved = True
 
-            # Update the best solution fitness after the individual learning
-            if Fitness.fitness_function(c_new, self.cost_matrix) < best_solution_value:
-                best_solution_value = Fitness.fitness_function(c_new, self.cost_matrix)
-                no_improvement_attempt_count = 0
-            else:
-                no_improvement_attempt_count += 1
+        if Fitness.fitness_function(c_new, self.cost_matrix) < self.best_solution_value:
+            self.best_solution_value = Fitness.fitness_function(c_new, self.cost_matrix)
+            self.no_improvement_attempt_count = 0
+        else:
+            self.no_improvement_attempt_count += 1
 
-            self.current_solution = c_new
+        self.current_solution = c_new
+        self.di_cycle_count += 1
 
-            di_cycle_count += 1  # Increment cycle count
+        if self.end_of_di_cycle(self.di_cycle_count):
+            if self.best_coalition_improved:
+                self.weight_matrix.weights = self.individual_learning()
+                self.best_coalition_improved = False
+            self.previous_experience = []
+            self.di_cycle_count = 0
 
-            # Learning mechanisms at the end of a Diversification-Intensification (D-I) cycle
-            if self.end_of_di_cycle(di_cycle_count):
-                if best_coalition_improved:
-                    self.weight_matrix.weights = self.individual_learning()
-                    best_coalition_improved = False
-                self.previous_experience = []
-                di_cycle_count = 0
+        self.iteration_count += 1
+        self.get_logger().info(f"Iteration {self.iteration_count}: Current best solution fitness = {self.best_solution_value}")
 
-
-            iteration_count += 1
 
     def select_random_solution(self):
         temp_solution = sample(population=self.population, k=1)[0]
@@ -238,11 +243,8 @@ def main(args=None):
         num_solution_attempts=20, agent_id=1, node_name=node_name
     )
 
-    executor = MultiThreadedExecutor()
-    executor.add_node(agent)
-
     try:
-        executor.spin()
+        rclpy.spin(agent)  # Run the ROS2 executor
     except KeyboardInterrupt:
         pass
     finally:

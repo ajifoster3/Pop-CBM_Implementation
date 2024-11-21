@@ -20,18 +20,18 @@ class ConditionFunctions:
         """
         if not previous_experience:
             return Condition.C_0
-        if previous_experience[-1][1] in {Operator.Operator.BEST_COST_ROUTE_CROSSOVER,
-                                          Operator.Operator.INTRA_DEPOT_REMOVAL,
-                                          Operator.Operator.INTRA_DEPOT_SWAPPING,
-                                          #'Operator.Operator.INTER_DEPOT_SWAPPING,
-                                          Operator.Operator.SINGLE_ACTION_REROUTING}:
+        if previous_experience[-1][1] in {Operator.BEST_COST_ROUTE_CROSSOVER,
+                                          Operator.INTRA_DEPOT_REMOVAL,
+                                          Operator.INTRA_DEPOT_SWAPPING,
+                                          #'Operator.INTER_DEPOT_SWAPPING,
+                                          Operator.SINGLE_ACTION_REROUTING}:
             return Condition.C_1
             # New condition: check if both TWO_SWAP and ONE_MOVE have been used once without improvement
         last_two_operators = [entry[1] for entry in previous_experience[-2:]]
-        if Counter(last_two_operators) == Counter([Operator.Operator.TWO_SWAP, Operator.Operator.ONE_MOVE]) and \
+        if Counter(last_two_operators) == Counter([Operator.TWO_SWAP, Operator.ONE_MOVE]) and \
                 all(entry[2] == 0 for entry in previous_experience[-2:]):  # Check if gain is zero for both entries
             return Condition.C_4
-        if previous_experience[-1][1] == Operator.Operator.TWO_SWAP:
+        if previous_experience[-1][1] == Operator.TWO_SWAP:
             return Condition.C_2
-        if previous_experience[-1][1] == Operator.Operator.ONE_MOVE:
+        if previous_experience[-1][1] == Operator.ONE_MOVE:
             return Condition.C_3
