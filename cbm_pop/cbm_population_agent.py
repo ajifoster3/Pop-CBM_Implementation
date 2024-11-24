@@ -28,6 +28,7 @@ class CBMPopulationAgent(Node):
         self.num_tsp_agents = num_tsp_agents
         self.agent_best_solution = None
         self.coalition_best_solution = None
+        self.local_best_solution = None
         self.coalition_best_agent = None
         self.num_intensifiers = 2
         self.num_diversifiers = 4
@@ -45,6 +46,7 @@ class CBMPopulationAgent(Node):
         self.best_solution_value = Fitness.fitness_function(self.current_solution, self.cost_matrix)
         self.no_improvement_attempt_count = 0
         self.best_coalition_improved = False
+        self.best_local_improved = False
 
         # ROS publishers and subscribers
         self.solution_publisher = self.create_publisher(Solution, 'best_solution', 10)
@@ -204,11 +206,18 @@ class CBMPopulationAgent(Node):
                Fitness.fitness_function(self.current_solution, self.cost_matrix)
         self.update_experience(condition, operator, gain)
 
+        if self.local_best_solution is None or \
+                Fitness.fitness_function(c_new, self.cost_matrix) < Fitness.fitness_function(
+                    self.local_best_solution, self.cost_matrix):
+            self.local_best_solution = deepcopy(c_new)
+            self.best_local_improved = True
+
         if self.coalition_best_solution is None or \
                 Fitness.fitness_function(c_new, self.cost_matrix) < Fitness.fitness_function(
                     self.coalition_best_solution, self.cost_matrix):
             self.coalition_best_solution = deepcopy(c_new)
             self.coalition_best_agent = self.agent_ID
+            self.best_coalition_improved = True
 
             solution = Solution()
             solution.id = self.agent_ID
@@ -226,9 +235,15 @@ class CBMPopulationAgent(Node):
         self.di_cycle_count += 1
 
         if self.end_of_di_cycle(self.di_cycle_count):
+            if self.best_local_improved:
+                self.weight_matrix.weights = self.individual_learning()
+                self.best_local_improved = False
+
             if self.best_coalition_improved:
                 self.weight_matrix.weights = self.individual_learning()
                 self.best_coalition_improved = False
+                # TODO: Broadcast weight matrix
+
             self.previous_experience = []
             self.di_cycle_count = 0
 
@@ -243,7 +258,7 @@ def main(args=None):
     node_name = "cbm_population_agent"
     agent = CBMPopulationAgent(
         pop_size=10, eta=0.1, rho=0.1, di_cycle_length=5, epsilon=0.01,
-        num_tasks=20, num_tsp_agents=5, num_iterations=1000,
+        num_tasks=200, num_tsp_agents=5, num_iterations=1000,
         num_solution_attempts=20, agent_id=1, node_name=node_name
     )
 
