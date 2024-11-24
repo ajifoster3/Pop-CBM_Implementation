@@ -28,6 +28,7 @@ class CBMPopulationAgent(Node):
         self.num_tsp_agents = num_tsp_agents
         self.agent_best_solution = None
         self.coalition_best_solution = None
+        self.coalition_best_agent = None
         self.num_intensifiers = 2
         self.num_diversifiers = 4
         self.population = self.generate_population()
@@ -123,10 +124,6 @@ class CBMPopulationAgent(Node):
 
     # TODO: Implement Learning!!!
 
-    def broadcast_solution(self, c_new):
-        # Broadcast the solution (placeholder, no actual communication in this simple example)
-        pass
-
     def individual_learning(self):
         # Update weight matrix (if needed) based on learning (not fully implemented in this example)
         abs_gain = 0
@@ -165,11 +162,15 @@ class CBMPopulationAgent(Node):
 
     def weight_update_callback(self, msg):
         # Callback to process incoming weight matrix updates
-        self.get_logger().info(f"Received weight update: {msg.data}")
+        self.get_logger().info(f"Received weight update: ")
 
     def solution_update_callback(self, msg):
         # Callback to process incoming weight matrix updates
-        self.get_logger().info(f"Received weight update: {msg.data}")
+        solution = (msg.order, msg.allocations)
+        if Fitness.fitness_function(solution, self.cost_matrix) > self.best_solution_value:
+            self.best_solution_value = Fitness.fitness_function(solution, self.cost_matrix)
+            self.coalition_best_solution = solution
+            self.coalition_best_agent = msg.id
 
     def select_random_solution(self):
         temp_solution = sample(population=self.population, k=1)[0]
@@ -207,6 +208,13 @@ class CBMPopulationAgent(Node):
                 Fitness.fitness_function(c_new, self.cost_matrix) < Fitness.fitness_function(
                     self.coalition_best_solution, self.cost_matrix):
             self.coalition_best_solution = deepcopy(c_new)
+            self.coalition_best_agent = self.agent_ID
+
+            solution = Solution()
+            solution.id = self.agent_ID
+            solution.order = self.coalition_best_solution[0]
+            solution.allocations = self.coalition_best_solution[1]
+            self.solution_publisher.publish(solution)
 
         if Fitness.fitness_function(c_new, self.cost_matrix) < self.best_solution_value:
             self.best_solution_value = Fitness.fitness_function(c_new, self.cost_matrix)
