@@ -255,6 +255,7 @@ class CBMPopulationAgent(Node):
 
             if self.received_weight_matrices:
                 self.mimetism_learning(self.received_weight_matrices, self.rho)
+                self.received_weight_matrices = []
 
             self.previous_experience = []
             self.di_cycle_count = 0
