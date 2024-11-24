@@ -146,9 +146,26 @@ class CBMPopulationAgent(Node):
         return self.weight_matrix.weights
 
     def mimetism_learning(self, received_weights, rho):
-        # Mimetism learning: Combine W with W_received based on rho (placeholder in this example)
-
-        return self.weight_matrix.weights
+        """
+        Perform mimetism learning by updating self.weight_matrix.weights using multiple sets of received weights.
+        For each weight in each received set:
+            w_a = (1 - rho) * w_a + rho * w_b
+        :param received_weights: A 3D list (or array) of received weights. Each "slice" is a 2D matrix of weights.
+        :param rho: The learning rate, a value between 0 and 1.
+        :return: Updated weight matrix.
+        """
+        # Iterate over each set of received weights
+        for weight_set in received_weights:
+            # Check dimensions match
+            if len(weight_set) != len(self.weight_matrix.weights) or len(weight_set[0]) != len(
+                    self.weight_matrix.weights[0]):
+                raise ValueError("Dimension mismatch between weight_matrix.weights and received weights.")
+                # Update self.weight_matrix.weights for each element
+            for i in range(len(self.weight_matrix.weights)):  # Rows
+                for j in range(len(self.weight_matrix.weights[i])):  # Columns
+                    self.weight_matrix.weights[i][j] = (
+                            (1 - rho) * self.weight_matrix.weights[i][j] + rho * weight_set[i][j]
+                    )
 
     def stopping_criterion(self, iteration_count):
         # Define a stopping criterion (e.g., a fixed number of iterations)
