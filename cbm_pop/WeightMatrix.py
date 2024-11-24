@@ -30,3 +30,35 @@ class WeightMatrix:
         final_diversifier_condition_row = [0] * self.num_intensifiers + [1] * self.num_diversifiers
         weight_matrix.append(final_diversifier_condition_row)
         return weight_matrix
+
+    def pack_weights(self, id):
+        """
+        Packs a 2D weight matrix (as a list of lists) into a Weights.msg-compatible format.
+        """
+        rows = len(self.weights)  # Number of rows
+        cols = len(self.weights[0]) if rows > 0 else 0  # Number of columns
+
+        # Flatten and ensure all elements are floats
+        flattened_weights = [float(value) for row in self.weights for value in row]
+
+        weights_msg = {
+            "id": id,
+            "rows": rows,
+            "cols": cols,
+            "weights": flattened_weights,
+        }
+        return weights_msg
+
+    def unpack_weights(self, weights_msg, agent_id):
+        """
+        Unpacks a Weights.msg-compatible format into a 2D weight matrix (list of lists).
+        """
+        if weights_msg.id != agent_id:
+            rows = weights_msg.rows
+            cols = weights_msg.cols
+            weights_flat = weights_msg.weights
+            # Recreate the 2D list
+            weight_matrix = [weights_flat[i * cols:(i + 1) * cols] for i in range(rows)]
+            return weight_matrix
+        else:
+            return None
