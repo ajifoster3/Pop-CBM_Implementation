@@ -39,6 +39,7 @@ class CBMPopulationAgent(Node):
         self.previous_experience = []
         self.no_improvement_attempts = num_solution_attempts
         self.agent_ID = agent_id
+        self.received_weight_matrices = []
 
         # Iteration state
         self.iteration_count = 0
@@ -144,10 +145,6 @@ class CBMPopulationAgent(Node):
             self.weight_matrix.weights[pair[0].value][pair[1].value-1] += self.eta # TODO: Eta2 for beating coalition fitness
         return self.weight_matrix.weights
 
-    def broadcast_weight_matrix(self, weights):
-        # Broadcast the weight matrix (placeholder, no actual communication in this example)
-        pass
-
     def mimetism_learning(self, received_weights, rho):
         # Mimetism learning: Combine W with W_received based on rho (placeholder in this example)
 
@@ -164,7 +161,12 @@ class CBMPopulationAgent(Node):
 
     def weight_update_callback(self, msg):
         # Callback to process incoming weight matrix updates
-        self.get_logger().info(f"Received weight update: ")
+        received_weights = self.weight_matrix.unpack_weights(weights_msg=msg, agent_id=self.agent_ID)
+        if received_weights is not None:
+            self.received_weight_matrices.append(received_weights)
+            self.get_logger().info(f"Received weight update: ")
+        else:
+            self.get_logger().info(f"Received weight from self")
 
     def solution_update_callback(self, msg):
         # Callback to process incoming weight matrix updates
@@ -240,9 +242,19 @@ class CBMPopulationAgent(Node):
                 self.best_local_improved = False
 
             if self.best_coalition_improved:
-                self.weight_matrix.weights = self.individual_learning()
                 self.best_coalition_improved = False
-                # TODO: Broadcast weight matrix
+
+                msg = Weights()
+                msg_dict = self.weight_matrix.pack_weights(self.agent_ID)
+                msg.id = msg_dict["id"]
+                msg.rows = msg_dict["rows"]
+                msg.cols = msg_dict["cols"]
+                msg.weights = msg_dict["weights"]
+
+                self.weight_publisher.publish(msg)
+
+            if self.received_weight_matrices:
+                self.mimetism_learning(self.received_weight_matrices, self.rho)
 
             self.previous_experience = []
             self.di_cycle_count = 0
