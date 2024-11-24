@@ -11,6 +11,7 @@ from std_msgs.msg import String, Float32
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 import threading
+from cbm_pop_interfaces.msg import Solution, Weights
 
 class CBMPopulationAgent(Node):
 
@@ -45,12 +46,12 @@ class CBMPopulationAgent(Node):
         self.best_coalition_improved = False
 
         # ROS publishers and subscribers
-        self.solution_publisher = self.create_publisher(String, 'best_solution', 10)
+        self.solution_publisher = self.create_publisher(Solution, 'best_solution', 10)
         self.solution_subscriber = self.create_subscription(
-            String, 'weight_update', self.solution_update_callback, 10)
-        self.weight_publisher = self.create_publisher(String, 'weight_matrix', 10)
+            Solution, 'best_solution', self.solution_update_callback, 10)
+        self.weight_publisher = self.create_publisher(Weights, 'weight_matrix', 10)
         self.weight_subscriber = self.create_subscription(
-            String, 'weight_update', self.weight_update_callback, 10)
+            Weights, 'weight_matrix', self.weight_update_callback, 10)
 
         # Timer for periodic execution of the run loop
         self.run_timer = self.create_timer(0.1, self.run_step)
@@ -162,10 +163,6 @@ class CBMPopulationAgent(Node):
             return True
         return False  # Placeholder; replace with actual condition
 
-    def receive_weight_matrix(self):
-        # Placeholder for receiving a weight matrix from a neighboring agent, if available
-        return None
-
     def weight_update_callback(self, msg):
         # Callback to process incoming weight matrix updates
         self.get_logger().info(f"Received weight update: {msg.data}")
@@ -173,6 +170,11 @@ class CBMPopulationAgent(Node):
     def solution_update_callback(self, msg):
         # Callback to process incoming weight matrix updates
         self.get_logger().info(f"Received weight update: {msg.data}")
+
+    def select_random_solution(self):
+        temp_solution = sample(population=self.population, k=1)[0]
+        if temp_solution != self.current_solution:
+            return temp_solution
 
     def run_step(self):
         """
@@ -205,7 +207,6 @@ class CBMPopulationAgent(Node):
                 Fitness.fitness_function(c_new, self.cost_matrix) < Fitness.fitness_function(
                     self.coalition_best_solution, self.cost_matrix):
             self.coalition_best_solution = deepcopy(c_new)
-            self.best_coalition_improved = True
 
         if Fitness.fitness_function(c_new, self.cost_matrix) < self.best_solution_value:
             self.best_solution_value = Fitness.fitness_function(c_new, self.cost_matrix)
@@ -226,11 +227,6 @@ class CBMPopulationAgent(Node):
         self.iteration_count += 1
         self.get_logger().info(f"Iteration {self.iteration_count}: Current best solution fitness = {self.best_solution_value}")
 
-
-    def select_random_solution(self):
-        temp_solution = sample(population=self.population, k=1)[0]
-        if temp_solution != self.current_solution:
-            return temp_solution
 
 def main(args=None):
     rclpy.init(args=args)
