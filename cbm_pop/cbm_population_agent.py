@@ -125,8 +125,6 @@ class CBMPopulationAgent(Node):
         self.previous_experience.append([condition, operator, gain])
         pass
 
-    # TODO: Implement Learning!!!
-
     def individual_learning(self):
         # Update weight matrix (if needed) based on learning (not fully implemented in this example)
         abs_gain = 0
@@ -237,7 +235,6 @@ class CBMPopulationAgent(Node):
             self.coalition_best_solution = deepcopy(c_new)
             self.coalition_best_agent = self.agent_ID
             self.best_coalition_improved = True
-
             solution = Solution()
             solution.id = self.agent_ID
             solution.order = self.coalition_best_solution[0]
