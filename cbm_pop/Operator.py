@@ -59,7 +59,6 @@ class OperatorFunctions:
         :return: A child solution
         """
         # Get the function based on the operator
-        print(f"Operator type: {type(operator)}, value: {operator}")
 
         if operator in OperatorFunctions.operator_function_map:
             # Call the function and pass arguments as needed
