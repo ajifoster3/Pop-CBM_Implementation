@@ -44,7 +44,6 @@ class CBMPopulationAgent(Node):
         # Iteration state
         self.iteration_count = 0
         self.di_cycle_count = 0
-        self.best_solution_value = Fitness.fitness_function(self.current_solution, self.cost_matrix)
         self.no_improvement_attempt_count = 0
         self.best_coalition_improved = False
         self.best_local_improved = False
@@ -166,8 +165,8 @@ class CBMPopulationAgent(Node):
     def solution_update_callback(self, msg):
         # Callback to process incoming weight matrix updates
         solution = (msg.order, msg.allocations)
-        if Fitness.fitness_function(solution, self.cost_matrix) > self.best_solution_value:
-            self.best_solution_value = Fitness.fitness_function(solution, self.cost_matrix)
+        if Fitness.fitness_function(solution, self.cost_matrix) > Fitness.fitness_function(
+                    self.coalition_best_solution, self.cost_matrix):
             self.coalition_best_solution = solution
             self.coalition_best_agent = msg.id
 
@@ -208,6 +207,9 @@ class CBMPopulationAgent(Node):
                     self.local_best_solution, self.cost_matrix):
             self.local_best_solution = deepcopy(c_new)
             self.best_local_improved = True
+            self.no_improvement_attempt_count = 0
+        else:
+            self.no_improvement_attempt_count += 1
 
         if self.coalition_best_solution is None or \
                 Fitness.fitness_function(c_new, self.cost_matrix) < Fitness.fitness_function(
@@ -220,12 +222,6 @@ class CBMPopulationAgent(Node):
             solution.order = self.coalition_best_solution[0]
             solution.allocations = self.coalition_best_solution[1]
             self.solution_publisher.publish(solution)
-
-        if Fitness.fitness_function(c_new, self.cost_matrix) < self.best_solution_value:
-            self.best_solution_value = Fitness.fitness_function(c_new, self.cost_matrix)
-            self.no_improvement_attempt_count = 0
-        else:
-            self.no_improvement_attempt_count += 1
 
         self.current_solution = c_new
         self.di_cycle_count += 1
@@ -255,7 +251,8 @@ class CBMPopulationAgent(Node):
             self.di_cycle_count = 0
 
         self.iteration_count += 1
-        self.get_logger().info(f"Iteration {self.iteration_count}: Current best solution fitness = {self.best_solution_value}")
+        self.get_logger().info(f"Iteration {self.iteration_count}: Current best solution fitness = "
+                               f"{Fitness.fitness_function(self.current_solution, self.cost_matrix)}")
 
 def generate_problem(num_tasks):
     """
