@@ -253,7 +253,7 @@ class CBMPopulationAgent(Node):
 
         self.iteration_count += 1
         self.get_logger().info(f"Iteration {self.iteration_count}: Current best solution fitness = "
-                               f"{Fitness.fitness_function(self.current_solution, self.cost_matrix)}")
+                               f"{Fitness.fitness_function(self.local_best_solution, self.cost_matrix)}")
 
 def generate_problem(num_tasks):
     """
