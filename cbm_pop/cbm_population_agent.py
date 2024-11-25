@@ -60,26 +60,6 @@ class CBMPopulationAgent(Node):
         # Timer for periodic execution of the run loop
         self.run_timer = self.create_timer(0.1, self.run_step)
 
-
-    def generate_problem(self):
-        """
-        Randomly generates a problem of size `number_tasks`
-        :return: Randomly generated symmetrical cost matrix representing the problem
-        """
-        # Set the random seed for reproducibility
-        np.random.seed(0)
-
-        # Generate a random symmetrical 20x20 cost matrix
-        size = self.num_tasks
-        cost_matrix = np.random.randint(1, 100, size=(size, size))
-
-        # Make the matrix symmetrical
-        cost_matrix = (cost_matrix + cost_matrix.T) // 2
-
-        # Set the diagonal to zero (no cost for staying at the same location)
-        np.fill_diagonal(cost_matrix, 0)
-        return cost_matrix
-
     def generate_population(self):
         """
         Randomly generates a population of size `pop_size`
@@ -277,16 +257,34 @@ class CBMPopulationAgent(Node):
         self.iteration_count += 1
         self.get_logger().info(f"Iteration {self.iteration_count}: Current best solution fitness = {self.best_solution_value}")
 
+def generate_problem(num_tasks):
+    """
+    Randomly generates a problem of size `number_tasks`
+    :return: Randomly generated symmetrical cost matrix representing the problem
+    """
+    # Set the random seed for reproducibility
+    np.random.seed(0)
+    # Generate a random symmetrical 20x20 cost matrix
+    size = num_tasks
+    cost_matrix = np.random.randint(1, 100, size=(size, size))
+    # Make the matrix symmetrical
+    cost_matrix = (cost_matrix + cost_matrix.T) // 2
+    # Set the diagonal to zero (no cost for staying at the same location)
+    np.fill_diagonal(cost_matrix, 0)
+    return cost_matrix
 
 def main(args=None):
     rclpy.init(args=args)
+
+    num_tasks = 150
+    cost_matrix = generate_problem(num_tasks)
 
     # Create and run the agent node
     node_name = "cbm_population_agent"
     agent = CBMPopulationAgent(
         pop_size=10, eta=0.1, rho=0.1, di_cycle_length=5, epsilon=0.01,
-        num_tasks=200, num_tsp_agents=5, num_iterations=1000,
-        num_solution_attempts=20, agent_id=1, node_name=node_name
+        num_tasks=num_tasks, num_tsp_agents=5, num_iterations=1000,
+        num_solution_attempts=20, agent_id=1, node_name=node_name, cost_matrix=cost_matrix
     )
 
     try:
