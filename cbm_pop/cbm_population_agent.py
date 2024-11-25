@@ -16,7 +16,7 @@ from cbm_pop_interfaces.msg import Solution, Weights
 class CBMPopulationAgent(Node):
 
     def __init__(self, pop_size, eta, rho, di_cycle_length, epsilon, num_tasks, num_tsp_agents, num_iterations,
-                 num_solution_attempts, agent_id, node_name: str):
+                 num_solution_attempts, agent_id, node_name: str, cost_matrix):
         super().__init__(node_name)
         self.pop_size = pop_size
         self.eta = eta
@@ -33,7 +33,7 @@ class CBMPopulationAgent(Node):
         self.num_intensifiers = 2
         self.num_diversifiers = 4
         self.population = self.generate_population()
-        self.cost_matrix = self.generate_problem()
+        self.cost_matrix = cost_matrix
         self.current_solution = self.select_solution()
         self.weight_matrix = WeightMatrix(self.num_intensifiers, self.num_diversifiers)
         self.previous_experience = []
