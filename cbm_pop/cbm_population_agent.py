@@ -6,6 +6,7 @@ from cbm_pop.Condition import ConditionFunctions
 from cbm_pop.Fitness import Fitness
 from cbm_pop.Operator import OperatorFunctions
 from cbm_pop.WeightMatrix import WeightMatrix
+from cbm_pop.Problem import Problem
 from rclpy.node import Node
 from std_msgs.msg import String, Float32
 import rclpy
@@ -158,17 +159,17 @@ class CBMPopulationAgent(Node):
         received_weights = self.weight_matrix.unpack_weights(weights_msg=msg, agent_id=self.agent_ID)
         if received_weights is not None:
             self.received_weight_matrices.append(received_weights)
-            self.get_logger().info(f"Received weight update: ")
-        else:
-            self.get_logger().info(f"Received weight from self")
 
     def solution_update_callback(self, msg):
         # Callback to process incoming weight matrix updates
-        solution = (msg.order, msg.allocations)
-        if Fitness.fitness_function(solution, self.cost_matrix) > Fitness.fitness_function(
-                    self.coalition_best_solution, self.cost_matrix):
-            self.coalition_best_solution = solution
-            self.coalition_best_agent = msg.id
+        if msg is not None and self.coalition_best_solution is not None:
+            solution = (msg.order, msg.allocations)
+            if Fitness.fitness_function(solution, self.cost_matrix) > Fitness.fitness_function(
+                        self.coalition_best_solution, self.cost_matrix):
+                self.coalition_best_solution = solution
+                self.coalition_best_agent = msg.id
+        else:
+            print("Received empty message")
 
     def select_random_solution(self):
         temp_solution = sample(population=self.population, k=1)[0]
@@ -273,15 +274,26 @@ def generate_problem(num_tasks):
 def main(args=None):
     rclpy.init(args=args)
 
+    node = Node("parameter_loader")
+    node.declare_parameter("agent_id", 1)  # Default agent_id
+    node.declare_parameter("problem_filename", "150_Task_Problem.csv")  # Default problem_filename
+
+    agent_id = node.get_parameter("agent_id").value
+    problem_filename = node.get_parameter("problem_filename").value
+    node.destroy_node()  # Clean up the temporary node
+
     num_tasks = 150
-    cost_matrix = generate_problem(num_tasks)
+    problem = Problem()
+    problem.load_cost_matrix(problem_filename, "csv")
+    num_tasks = len(problem.cost_matrix)
 
     # Create and run the agent node
-    node_name = "cbm_population_agent"
+    node_name = f"cbm_population_agent_{agent_id}"
     agent = CBMPopulationAgent(
         pop_size=10, eta=0.1, rho=0.1, di_cycle_length=5, epsilon=0.01,
         num_tasks=num_tasks, num_tsp_agents=5, num_iterations=1000,
-        num_solution_attempts=20, agent_id=1, node_name=node_name, cost_matrix=cost_matrix
+        num_solution_attempts=20, agent_id=agent_id, node_name=node_name,
+        cost_matrix=problem.cost_matrix
     )
 
     try:
