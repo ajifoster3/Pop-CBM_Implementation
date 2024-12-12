@@ -17,7 +17,7 @@ from cbm_pop_interfaces.msg import Solution, Weights
 class CBMPopulationAgent(Node):
 
     def __init__(self, pop_size, eta, rho, di_cycle_length, epsilon, num_tasks, num_tsp_agents, num_iterations,
-                 num_solution_attempts, agent_id, node_name: str, cost_matrix):
+                 num_solution_attempts, agent_id, node_name: str, cost_matrix,reward_matrix=None):
         super().__init__(node_name)
         self.pop_size = pop_size
         self.eta = eta
@@ -59,6 +59,13 @@ class CBMPopulationAgent(Node):
 
         # Timer for periodic execution of the run loop
         self.run_timer = self.create_timer(0.1, self.run_step)
+
+
+        #Q_learning
+        # Q_learning parameter
+        self.lr=0.1 # RL learning Rate
+        self.reward_Matrix=reward_matrix # it will be same size  with weight_matrix
+
 
     def generate_population(self):
         """
@@ -119,11 +126,17 @@ class CBMPopulationAgent(Node):
         elements_before_best = self.previous_experience[:index_best_fitness+1] if index_best_fitness != -1 else []
         condition_operator_pairs = [(item[0], item[1]) for item in elements_before_best]
         condition_operator_pairs = list(set(condition_operator_pairs))
+        # This part of code will be chande
         for pair in condition_operator_pairs:
             self.weight_matrix.weights[pair[0].value][pair[1].value-1] += self.eta # TODO: Eta2 for beating coalition fitness
+            #self.weight_matrix.weights[pair[0].value][pair[1].value - 1] =  (1-self.lr)*self.weight_matrix.weights[pair[0].value][pair[1].value - 1] /
+            #self.lr*(Reward+decay*np.argmax())
+
         return self.weight_matrix.weights
 
+
     def mimetism_learning(self, received_weights, rho):
+        #mimetisim learnng will stay same
         """
         Perform mimetism learning by updating self.weight_matrix.weights using multiple sets of received weights.
         For each weight in each received set:
